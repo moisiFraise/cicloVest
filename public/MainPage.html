@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - cicloVest</title>
+    <link rel="stylesheet" href="cadastroLogin.css">
+    <link rel="stylesheet" href="menu.css">
+    <link rel="stylesheet" href="MainPage.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Menu será inserido aqui pelo JavaScript -->
+    
+    <main class="main-content">
+        <div class="dashboard-container">
+            <!-- Header -->
+            <header class="dashboard-header">
+                <div class="header-content">
+                    <div class="header-text">
+                        <h1>Dashboard</h1>
+                        <p>Acompanhe seu progresso nos estudos</p>
+                    </div>
+                    <div class="header-date">
+                        <span id="current-date"></span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Stats Section -->
+            <section class="stats-section">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <span>📊</span>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Média Geral</h3>
+                            <span class="stat-value" id="media-geral">78.5%</span>
+                            <span class="stat-change positive" id="media-geral-change">+2.3%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <span>📝</span>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Simulados</h3>
+                            <span class="stat-value" id="media-simulados">82.1%</span>
+                            <span class="stat-change positive" id="simulados-change">+5.7%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <span>✍️</span>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Redação</h3>
+                            <span class="stat-value" id="nota-redacao">850</span>
+                            <span class="stat-change positive" id="redacao-change">+50</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <span>🎯</span>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Meta Mensal</h3>
+                            <span class="stat-value" id="meta-mensal">75%</span>
+                            <span class="stat-change neutral" id="meta-change">3 dias restantes</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+            <section class="charts-section">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h2>Evolução dos Acertos</h2>
+                        <div class="chart-controls">
+                            <button class="chart-btn active" data-period="7">7 dias</button>
+                            <button class="chart-btn" data-period="30">30 dias</button>
+                            <button class="chart-btn" data-period="90">3 meses</button>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="progressChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h2>Desempenho por Matéria</h2>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="subjectsChart"></canvas>
+                    </div>
+                </div>
+            </section>
+                        <!-- Performance Section -->
+            <section class="performance-section">
+                <div class="performance-card">
+                    <h3>Matérias em Destaque</h3>
+                    <div class="subject-list">
+                        <div class="subject-item">
+                            <div class="subject-info">
+                                <span class="subject-name">Matemática</span>
+                                <span class="subject-score">92%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 92%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="subject-item">
+                            <div class="subject-info">
+                                <span class="subject-name">Física</span>
+                                <span class="subject-score">87%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 87%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="subject-item">
+                            <div class="subject-info">
+                                <span class="subject-name">Química</span>
+                                <span class="subject-score">84%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 84%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="subject-item">
+                            <div class="subject-info">
+                                <span class="subject-name">Biologia</span>
+                                <span class="subject-score">81%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 81%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="performance-card">
+                    <h3>Áreas para Melhorar</h3>
+                    <div class="subject-list">
+                        <div class="subject-item warning">
+                            <div class="subject-info">
+                                <span class="subject-name">História</span>
+                                <span class="subject-score">65%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill warning" style="width: 65%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="subject-item warning">
+                            <div class="subject-info">
+                                <span class="subject-name">Geografia</span>
+                                <span class="subject-score">68%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill warning" style="width: 68%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="subject-item critical">
+                            <div class="subject-info">
+                                <span class="subject-name">Literatura</span>
+                                <span class="subject-score">58%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill critical" style="width: 58%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="subject-item warning">
+                            <div class="subject-info">
+                                <span class="subject-name">Filosofia</span>
+                                <span class="subject-score">62%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill warning" style="width: 62%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Activity Section -->
+            <section class="activity-section">
+                <div class="activity-container">
+                    <h2>Atividade Recente</h2>
+                    <div class="activity-list" id="activity-list">
+                        <div class="activity-item">
+                            <div class="activity-icon success">
+                                <span>✓</span>
+                            </div>
+                            <div class="activity-content">
+                                <h4>Simulado ENEM 2024 - Matemática</h4>
+                                <p>Concluído com 85% de acertos</p>
+                                <span class="activity-time">Há 2 horas</span>
+                            </div>
+                        </div>
+                        
+                        <div class="activity-item">
+                            <div class="activity-icon info">
+                                <span>📝</span>
+                            </div>
+                            <div class="activity-content">
+                                <h4>Redação - Tema: Sustentabilidade</h4>
+                                <p>Nota: 920 pontos</p>
+                                <span class="activity-time">Ontem</span>
+                            </div>
+                        </div>
+                        
+                        <div class="activity-item">
+                            <div class="activity-icon warning">
+                                <span>⚠️</span>
+                            </div>
+                            <div class="activity-content">
+                                <h4>Lista de Exercícios - História</h4>
+                                <p>Precisa de revisão (60% de acertos)</p>
+                                <span class="activity-time">2 dias atrás</span>
+                            </div>
+                        </div>
+                        
+                        <div class="activity-item">
+                            <div class="activity-icon success">
+                                <span>🎯</span>
+                            </div>
+                            <div class="activity-content">
+                                <h4>Meta Semanal Atingida</h4>
+                                <p>15 horas de estudo completadas</p>
+                                <span class="activity-time">3 dias atrás</span>
+                            </div>
+                        </div>
+                        
+                        <div class="activity-item">
+                            <div class="activity-icon info">
+                                <span>📚</span>
+                            </div>
+                            <div class="activity-content">
+                                <h4>Revisão - Química Orgânica</h4>
+                                <p>Material estudado por 2 horas</p>
+                                <span class="activity-time">4 dias atrás</span>
+                            </div>
+                        </div>
+                        
+                        <div class="activity-item">
+                            <div class="activity-icon success">
+                                <span>📊</span>
+                            </div>
+                            <div class="activity-content">
+                                <h4>Simulado - Ciências da Natureza</h4>
+                                <p>Resultado: 78% de aproveitamento</p>
+                                <span class="activity-time">5 dias atrás</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Actions -->
+            <section class="quick-actions">
+                <div class="actions-container">
+                    <h2>Ações Rápidas</h2>
+                    <div class="actions-grid">
+                        <a href="/simulados.html" class="action-card">
+                            <div class="action-icon">
+                                <span>📊</span>
+                            </div>
+                            <h3>Novo Simulado</h3>
+                            <p>Teste seus conhecimentos</p>
+                        </a>
+                        
+                        <a href="/redacao.html" class="action-card">
+                            <div class="action-icon">
+                                <span>✍️</span>
+                            </div>
+                            <h3>Escrever Redação</h3>
+                            <p>Pratique sua escrita</p>
+                        </a>
+                        
+                        <a href="/materias.html" class="action-card">
+                            <div class="action-icon">
+                                <span>📚</span>
+                            </div>
+                            <h3>Estudar Matérias</h3>
+                            <p>Revise o conteúdo</p>
+                        </a>
+                        
+                        <a href="/relatorios.html" class="action-card">
+                            <div class="action-icon">
+                                <span>📈</span>
+                            </div>
+                            <h3>Ver Relatórios</h3>
+                            <p>Analise seu progresso</p>
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Carregando dados...</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="menu.js"></script>
+    <script src="MainPage.js"></script>
+</body>
+</html>

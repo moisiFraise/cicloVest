@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redação - cicloVest</title>
+    <link rel="stylesheet" href="cadastroLogin.css">
+    <link rel="stylesheet" href="menu.css">
+    <link rel="stylesheet" href="redacao.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Menu será inserido aqui pelo JavaScript -->
+    
+    <main class="main-content">
+        <div class="redacao-container">
+            <!-- Header -->
+            <header class="redacao-header">
+                <div class="header-content">
+                    <div class="header-text">
+                        <h1>📝 Redação ENEM</h1>
+                        <p>Registre suas notas e acompanhe sua evolução</p>
+                    </div>
+                    <div class="header-actions">
+                        <button id="nova-redacao-btn" class="btn-primary">
+                            <span>✍️</span>
+                            Nova Redação
+                        </button>
+                        <button id="estatisticas-btn" class="btn-secondary">
+                            <span>📊</span>
+                            Estatísticas
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Formulário de Nova Redação -->
+            <section id="form-section" class="form-section hidden">
+                <div class="form-container">
+                    <div class="form-header">
+                        <h2 id="form-title">Nova Redação</h2>
+                        <button id="close-form-btn" class="close-btn">&times;</button>
+                    </div>
+                    
+                    <form id="redacao-form" class="redacao-form">
+                        <input type="hidden" id="redacao-id" name="id">
+                        
+                        <div class="form-group">
+                            <label for="tema">Tema da Redação *</label>
+                            <input type="text" id="tema" name="tema" required maxlength="500" 
+                                   placeholder="Ex: A importância da educação no Brasil">
+                            <small class="char-counter">0/500 caracteres</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="nivel">Nível de Dificuldade *</label>
+                            <select id="nivel" name="nivel_dificuldade" required>
+                                <option value="">Selecione o nível</option>
+                                <option value="facil">😊 Fácil</option>
+                                <option value="medio">😐 Médio</option>
+                                <option value="dificil">😰 Difícil</option>
+                            </select>
+                        </div>
+
+                        <div class="competencias-section">
+                            <h3>Competências ENEM</h3>
+                            <p class="competencias-info">Cada competência vale de 0 a 200 pontos</p>
+                            
+                            <div class="competencias-grid">
+                                <div class="competencia-item">
+                                    <label for="c1">C1 - Domínio da Norma Padrão</label>
+                                    <div class="input-with-info">
+                                        <input type="number" id="c1" name="competencia_1" min="0" max="200" required>
+                                        <div class="competencia-info">
+                                            <span class="info-icon">ℹ️</span>
+                                            <div class="tooltip">
+                                                Demonstrar domínio da modalidade escrita formal da língua portuguesa
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="competencia-item">
+                                    <label for="c2">C2 - Compreensão do Tema</label>
+                                    <div class="input-with-info">
+                                        <input type="number" id="c2" name="competencia_2" min="0" max="200" required>
+                                        <div class="competencia-info">
+                                            <span class="info-icon">ℹ️</span>
+                                            <div class="tooltip">
+                                                Compreender a proposta de redação e aplicar conceitos das várias áreas de conhecimento
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="competencia-item">
+                                    <label for="c3">C3 - Organização das Informações</label>
+                                    <div class="input-with-info">
+                                        <input type="number" id="c3" name="competencia_3" min="0" max="200" required>
+                                        <div class="tooltip">
+                                            Selecionar, relacionar, organizar e interpretar informações em defesa de um ponto de vista
+                                        </div>
+                                        <div class="competencia-info">
+                                            <span class="info-icon">ℹ️</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="competencia-item">
+                                    <label for="c4">C4 - Mecanismos Linguísticos</label>
+                                    <div class="input-with-info">
+                                        <input type="number" id="c4" name="competencia_4" min="0" max="200" required>
+                                        <div class="competencia-info">
+                                            <span class="info-icon">ℹ️</span>
+                                            <div class="tooltip">
+                                                Demonstrar conhecimento dos mecanismos linguísticos necessários para a construção da argumentação
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="competencia-item">
+                                    <label for="c5">C5 - Proposta de Intervenção</label>
+                                    <div class="input-with-info">
+                                        <input type="number" id="c5" name="competencia_5" min="0" max="200" required>
+                                        <div class="competencia-info">
+                                            <span class="info-icon">ℹ️</span>
+                                            <div class="tooltip">
+                                                Elaborar proposta de intervenção para o problema abordado, respeitando os direitos humanos
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="nota-final">
+                                <div class="nota-display">
+                                    <span class="nota-label">Nota Final:</span>
+                                    <span id="nota-final-display" class="nota-value">0</span>
+                                    <span class="nota-max">/1000</span>
+                                </div>
+                                <div class="nota-progress">
+                                    <div id="nota-progress-bar" class="progress-bar">
+                                        <div class="progress-fill" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="observacoes">Observações (opcional)</label>
+                            <textarea id="observacoes" name="observacoes" rows="4" maxlength="1000"
+                                      placeholder="Adicione observações sobre a redação, pontos de melhoria, etc."></textarea>
+                            <small class="char-counter">0/1000 caracteres</small>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" id="cancel-btn" class="btn-secondary">Cancelar</button>
+                            <button type="submit" id="submit-btn" class="btn-primary">
+                                <span id="submit-text">Salvar Redação</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+            <!-- Lista de Redações -->
+            <section class="redacoes-section">
+                <div class="section-header">
+                    <h2>Minhas Redações</h2>
+                    <div class="section-controls">
+                        <div class="filter-group">
+                            <select id="nivel-filter" class="filter-select">
+                                <option value="">Todos os níveis</option>
+                                <option value="facil">😊 Fácil</option>
+                                <option value="medio">😐 Médio</option>
+                                <option value="dificil">😰 Difícil</option>
+                            </select>
+                            
+                            <select id="order-filter" class="filter-select">
+                                <option value="created_at-DESC">Mais recentes</option>
+                                <option value="created_at-ASC">Mais antigas</option>
+                                <option value="nota_final-DESC">Maior nota</option>
+                                <option value="nota_final-ASC">Menor nota</option>
+                                <option value="tema-ASC">Tema A-Z</option>
+                            </select>
+                        </div>
+                        
+                        <div class="view-toggle">
+                            <button id="grid-view-btn" class="view-btn active" title="Visualização em grade">
+                                <span>⊞</span>
+                            </button>
+                            <button id="list-view-btn" class="view-btn" title="Visualização em lista">
+                                <span>☰</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading -->
+                <div id="loading" class="loading-container hidden">
+                    <div class="loading-spinner"></div>
+                    <p>Carregando redações...</p>
+                </div>
+
+                <!-- Empty State -->
+                <div id="empty-state" class="empty-state hidden">
+                    <div class="empty-icon">📝</div>
+                    <h3>Nenhuma redação encontrada</h3>
+                    <p>Comece registrando sua primeira redação!</p>
+                    <button class="btn-primary" onclick="document.getElementById('nova-redacao-btn').click()">
+                        Criar Primeira Redação
+                    </button>
+                </div>
+
+                <!-- Lista de Redações -->
+                <div id="redacoes-list" class="redacoes-list grid-view">
+                    <!-- Redações serão inseridas aqui pelo JavaScript -->
+                </div>
+
+                <!-- Paginação -->
+                <div id="pagination" class="pagination hidden">
+                    <button id="prev-page" class="pagination-btn" disabled>
+                        <span>←</span> Anterior
+                    </button>
+                    <div id="page-info" class="page-info">
+                        Página <span id="current-page">1</span> de <span id="total-pages">1</span>
+                    </div>
+                    <button id="next-page" class="pagination-btn" disabled>
+                        Próxima <span>→</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Modal de Estatísticas -->
+            <div id="stats-modal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>📊 Estatísticas de Redação</h2>
+                        <button id="close-stats-btn" class="close-btn">&times;</button>
+                    </div>
+                    
+                    <div class="modal-body">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-icon">📝</div>
+                                <div class="stat-content">
+                                    <h3>Total de Redações</h3>
+                                    <span id="total-redacoes" class="stat-value">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">📊</div>
+                                <div class="stat-content">
+                                    <h3>Média Geral</h3>
+                                    <span id="media-geral" class="stat-value">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">🏆</div>
+                                <div class="stat-content">
+                                    <h3>Melhor Nota</h3>
+                                    <span id="melhor-nota" class="stat-value">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon">📉</div>
+                                <div class="stat-content">
+                                    <h3>Menor Nota</h3>
+                                    <span id="pior-nota" class="stat-value">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="competencias-stats">
+                            <h3>Média por Competência</h3>
+                            <div class="competencias-chart">
+                                <div class="competencia-stat">
+                                    <span class="comp-label">C1</span>
+                                    <div class="comp-bar">
+                                        <div id="c1-bar" class="comp-fill" style="width: 0%"></div>
+                                    </div>
+                                    <span id="c1-value" class="comp-value">0</span>
+                                </div>
+                                
+                                <div class="competencia-stat">
+                                    <span class="comp-label">C2</span>
+                                    <div class="comp-bar">
+                                        <div id="c2-bar" class="comp-fill" style="width: 0%"></div>
+                                    </div>
+                                    <span id="c2-value" class="comp-value">0</span>
+                                </div>
+                                
+                                <div class="competencia-stat">
+                                    <span class="comp-label">C3</span>
+                                    <div class="comp-bar">
+                                        <div id="c3-bar" class="comp-fill" style="width: 0%"></div>
+                                    </div>
+                                    <span id="c3-value" class="comp-value">0</span>
+                                </div>
+                                
+                                <div class="competencia-stat">
+                                    <span class="comp-label">C4</span>
+                                    <div class="comp-bar">
+                                        <div id="c4-bar" class="comp-fill" style="width: 0%"></div>
+                                    </div>
+                                    <span id="c4-value" class="comp-value">0</span>
+                                </div>
+                                
+                                <div class="competencia-stat">
+                                    <span class="comp-label">C5</span>
+                                    <div class="comp-bar">
+                                        <div id="c5-bar" class="comp-fill" style="width: 0%"></div>
+                                    </div>
+                                    <span id="c5-value" class="comp-value">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="nivel-stats">
+                            <h3>Desempenho por Nível</h3>
+                            <div id="nivel-stats-content" class="nivel-stats-content">
+                                <!-- Estatísticas por nível serão inseridas aqui -->
+                            </div>
+                        </div>
+
+                        <div class="ultimas-redacoes">
+                            <h3>Últimas Redações</h3>
+                            <div id="ultimas-redacoes-list" class="ultimas-list">
+                                <!-- Últimas redações serão inseridas aqui -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal de Confirmação de Exclusão -->
+            <div id="delete-modal" class="modal hidden">
+                <div class="modal-content small">
+                    <div class="modal-header">
+                        <h2>⚠️ Confirmar Exclusão</h2>
+                        <button id="close-delete-btn" class="close-btn">&times;</button>
+                    </div>
+                    
+                    <div class="modal-body">
+                        <p>Tem certeza que deseja excluir esta redação?</p>
+                        <p class="delete-warning">Esta ação não pode ser desfeita.</p>
+                        
+                        <div class="modal-actions">
+                            <button id="cancel-delete-btn" class="btn-secondary">Cancelar</button>
+                            <button id="confirm-delete-btn" class="btn-danger">Excluir</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Message Container -->
+    <div id="message" class="message hidden"></div>
+
+    <script src="menu.js"></script>
+    <script src="redacao.js"></script>
+</body>
+</html>
+
+           
