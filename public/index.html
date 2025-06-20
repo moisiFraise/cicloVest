@@ -5,63 +5,117 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="cicloVest - Sistema de Login e Cadastro">
     <meta name="author" content="cicloVest">
+    <meta name="theme-color" content="#cba6f7">
     <title>cicloVest - Login & Cadastro</title>
+    
+    <!-- Preload fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     
     <!-- CSS -->
     <link rel="stylesheet" href="/cadastroLogin.css">
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🚴‍♂️ cicloVest</h1>
+        <header class="header">
+            <h1>cicloVest</h1>
             <p>Sistema de Autenticação</p>
-        </div>
+        </header>
 
-        <div class="form-container">
-            <div class="form-toggle">
-                <button id="login-toggle" class="toggle-btn active">Login</button>
-                <button id="register-toggle" class="toggle-btn">Cadastro</button>
+        <main class="form-container">
+            <div class="form-toggle" id="form-toggle">
+                <button id="login-toggle" class="toggle-btn active" type="button">
+                    Login
+                </button>
+                <button id="register-toggle" class="toggle-btn" type="button">
+                    Cadastro
+                </button>
             </div>
 
             <!-- Formulário de Login -->
-            <form id="login-form" class="form active">
+            <form id="login-form" class="form active" novalidate>
                 <h2>Entrar no cicloVest</h2>
+                
                 <div class="input-group">
-                    <input type="email" id="login-email" placeholder="Email" required>
+                    <input 
+                        type="email" 
+                        id="login-email" 
+                        placeholder="Digite seu email" 
+                        required 
+                        autocomplete="email"
+                    >
                 </div>
+                
                 <div class="input-group">
-                    <input type="password" id="login-password" placeholder="Senha" required>
+                    <input 
+                        type="password" 
+                        id="login-password" 
+                        placeholder="Digite sua senha" 
+                        required 
+                        autocomplete="current-password"
+                        minlength="6"
+                    >
                 </div>
-                <button type="submit" class="btn-primary">Entrar</button>
+                
+                <button type="submit" class="btn-primary" id="login-btn">
+                    Entrar
+                </button>
             </form>
 
             <!-- Formulário de Cadastro -->
-            <form id="register-form" class="form">
+            <form id="register-form" class="form" novalidate>
                 <h2>Criar conta no cicloVest</h2>
+                
                 <div class="input-group">
-                    <input type="text" id="register-name" placeholder="Nome completo" required>
+                    <input 
+                        type="text" 
+                        id="register-name" 
+                        placeholder="Digite seu nome completo" 
+                        required 
+                        autocomplete="name"
+                        minlength="2"
+                    >
                 </div>
+                
                 <div class="input-group">
-                    <input type="email" id="register-email" placeholder="Email" required>
+                    <input 
+                        type="email" 
+                        id="register-email" 
+                        placeholder="Digite seu email" 
+                        required 
+                        autocomplete="email"
+                    >
                 </div>
+                
                 <div class="input-group">
-                    <input type="password" id="register-password" placeholder="Senha (mín. 6 caracteres)" required>
+                    <input 
+                        type="password" 
+                        id="register-password" 
+                        placeholder="Crie uma senha (mín. 6 caracteres)" 
+                        required 
+                        autocomplete="new-password"
+                        minlength="6"
+                    >
                 </div>
-                <button type="submit" class="btn-primary">Criar conta</button>
+                
+                <button type="submit" class="btn-primary" id="register-btn">
+                    Criar conta
+                </button>
             </form>
 
             <!-- Área do usuário logado -->
             <div id="user-area" class="user-area" style="display: none;">
-                <h2>Bem-vindo ao cicloVest!</h2>
+                <h2>Bem-vindo ao cicloVest! 🎉</h2>
                 <div id="user-info"></div>
-                <button id="logout-btn" class="btn-secondary">Sair</button>
+                <button id="logout-btn" class="btn-secondary" type="button">
+                    Sair da conta
+                </button>
             </div>
-        </div>
+        </main>
 
         <div id="message" class="message" style="display: none;"></div>
     </div>
