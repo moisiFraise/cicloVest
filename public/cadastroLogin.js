@@ -31,7 +31,6 @@ function showRegister() {
     clearMessage();
 }
 
-// Verificar se usuário já está logado
 document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -40,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Formulário de cadastro
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -48,7 +46,6 @@ registerForm.addEventListener('submit', async (e) => {
     const email = document.getElementById('register-email').value;
     const senha = document.getElementById('register-password').value;
 
-    // Validações no frontend
     if (!nome || !email || !senha) {
         showMessage('Todos os campos são obrigatórios', 'error');
         return;
@@ -87,14 +84,12 @@ registerForm.addEventListener('submit', async (e) => {
     }
 });
 
-// Formulário de login
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const email = document.getElementById('login-email').value;
     const senha = document.getElementById('login-password').value;
 
-    // Validações no frontend
     if (!email || !senha) {
         showMessage('Email e senha são obrigatórios', 'error');
         return;
@@ -128,7 +123,6 @@ loginForm.addEventListener('submit', async (e) => {
     }
 });
 
-// Logout
 document.getElementById('logout-btn').addEventListener('click', () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -137,7 +131,6 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     showMessage('Logout realizado com sucesso!', 'success');
 });
 
-// Funções auxiliares
 function showUserArea() {
     document.querySelector('.form-container').style.display = 'none';
     userArea.style.display = 'block';
@@ -169,7 +162,6 @@ async function loadUserProfile() {
         if (response.ok) {
             displayUserInfo(data);
         } else {
-            // Token inválido ou expirado
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             showLoginForm();
@@ -200,7 +192,6 @@ function showMessage(message, type) {
     messageDiv.className = `message ${type}`;
     messageDiv.style.display = 'block';
     
-    // Auto-hide após 5 segundos
     setTimeout(() => {
         clearMessage();
     }, 5000);
@@ -213,17 +204,14 @@ function clearMessage() {
 }
 
 function clearForms() {
-    // Limpar formulário de login
     document.getElementById('login-email').value = '';
     document.getElementById('login-password').value = '';
     
-    // Limpar formulário de cadastro
     document.getElementById('register-name').value = '';
     document.getElementById('register-email').value = '';
     document.getElementById('register-password').value = '';
 }
 
-// Verificar token periodicamente (a cada 5 minutos)
 setInterval(() => {
     const token = localStorage.getItem('token');
     if (token && userArea.style.display !== 'none') {
@@ -231,7 +219,6 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000); // 5 minutos
 
-// Função para testar conexão com banco
 async function testDatabase() {
     try {
         const response = await fetch('/api/test-db');
@@ -250,12 +237,9 @@ async function testDatabase() {
     }
 }
 
-// Testar conexão ao carregar a página
 document.addEventListener('DOMContentLoaded', () => {
     testDatabase();
 });
-
-// Função para setup inicial do banco (apenas para desenvolvimento)
 async function setupDatabase() {
     try {
         const response = await fetch('/api/setup-db', {
@@ -276,7 +260,6 @@ async function setupDatabase() {
     }
 }
 
-// Adicionar botão de setup para desenvolvimento (remover em produção)
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     document.addEventListener('DOMContentLoaded', () => {
         const setupBtn = document.createElement('button');
