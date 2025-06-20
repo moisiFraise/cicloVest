@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cicloVest - Login & Cadastro</title>
+    <link rel="stylesheet" href="cadastroLogin.css">
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <div class="form-toggle">
+                <button id="login-toggle" class="toggle-btn active">Login</button>
+                <button id="register-toggle" class="toggle-btn">Cadastro</button>
+            </div>
+
+            <!-- Formulário de Login -->
+            <form id="login-form" class="form active">
+                <h2>Entrar no cicloVest</h2>
+                <div class="input-group">
+                    <input type="email" id="login-email" placeholder="Email" required>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="login-password" placeholder="Senha" required>
+                </div>
+                <button type="submit" class="btn-primary">Entrar</button>
+            </form>
+
+            <!-- Formulário de Cadastro -->
+            <form id="register-form" class="form">
+                <h2>Criar conta no cicloVest</h2>
+                <div class="input-group">
+                    <input type="text" id="register-name" placeholder="Nome completo" required>
+                </div>
+                <div class="input-group">
+                    <input type="email" id="register-email" placeholder="Email" required>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="register-password" placeholder="Senha (mín. 6 caracteres)" required>
+                </div>
+                <button type="submit" class="btn-primary">Criar conta</button>
+            </form>
+
+            <!-- Área do usuário logado -->
+            <div id="user-area" class="user-area" style="display: none;">
+                <h2>Bem-vindo ao cicloVest!</h2>
+                <div id="user-info"></div>
+                <button id="logout-btn" class="btn-secondary">Sair</button>
+            </div>
+        </div>
+
+        <div id="message" class="message"></div>
+    </div>
+
+    <script src="cadastroLogin.js"></script>
+</body>
+</html>
