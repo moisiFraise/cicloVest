@@ -25,6 +25,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const UserController = require('./controllers/userController');
 const RedacaoController = require('./controllers/RedacaoController');
 const simuladoController = require('./controllers/simuladoController');
+const estudoController = require('./controllers/estudoController');
 
 // Importa middleware de autenticação
 const authenticateToken = require('./middleware/auth');
@@ -51,7 +52,16 @@ app.get('/api', (req, res) => {
       'GET /api/simulados/estatisticas (protegida)',
       'GET /api/simulados/:id (protegida)',
       'PUT /api/simulados/:id (protegida)',
-      'DELETE /api/simulados/:id (protegida)'
+      'DELETE /api/simulados/:id (protegida)',
+      'GET /api/estudos (protegida)',
+      'POST /api/estudos (protegida)',
+      'GET /api/estudos/stats (protegida)',
+      'GET /api/estudos/summary (protegida)',
+      'GET /api/estudos/:id (protegida)',
+      'PUT /api/estudos/:id (protegida)',
+      'DELETE /api/estudos/:id (protegida)',
+      'GET /api/estudos/date/:date (protegida)',
+      'GET /api/estudos/materia/:materia (protegida)'
     ]
   });
 });
@@ -128,6 +138,46 @@ app.post('/api/setup-db', async (req, res) => {
         )
       `);
 
+      // Criar tabela de estudos
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS estudos (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+          materia VARCHAR(100) NOT NULL CHECK (materia IN (
+            'Linguagens', 'História', 'Geografia', 'Filosofia', 'Sociologia', 
+            'Redação', 'Matemática', 'Física', 'Química', 'Biologia', 
+            'Inglês', 'Espanhol', 'Gramática', 'Outra'
+          )),
+          atividade VARCHAR(100) CHECK (atividade IN (
+            'Escrever redação', 'Assistir videoaulas', 'Responder questões', 
+            'Anki', 'Leitura', 'Resumos', 'Exercícios', 'Revisão', 'Outra'
+          )),
+          tempo_minutos INTEGER NOT NULL CHECK (tempo_minutos > 0),
+          quantidade_questoes INTEGER DEFAULT NULL,
+          descricao TEXT,
+          data_estudo DATE NOT NULL DEFAULT CURRENT_DATE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Índices para estudos
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_estudos_user_id ON estudos(user_id)
+      `);
+      
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_estudos_data ON estudos(data_estudo)
+      `);
+      
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_estudos_materia ON estudos(materia)
+      `);
+      
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_estudos_atividade ON estudos(atividade)
+      `);
+
        await client.query(`
         CREATE TABLE IF NOT EXISTS simulados (
           id SERIAL PRIMARY KEY,
@@ -193,6 +243,15 @@ app.post('/api/setup-db', async (req, res) => {
             RETURN NEW;
         END;
         $ language 'plpgsql'
+      `);
+
+      await client.query(`
+        DROP TRIGGER IF EXISTS update_estudos_updated_at ON estudos
+      `);
+      
+      await client.query(`
+        CREATE TRIGGER update_estudos_updated_at BEFORE UPDATE ON estudos
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
       `);
 
       await client.query(`
@@ -283,7 +342,7 @@ app.get('/api/dashboard-data', authenticateToken, async (req, res) => {
           materia: activity.materia,
           created_at: activity.created_at
         })),
-        subjects: {
+               subjects: {
           destaque: [
             { nome: 'Matemática', score: 92 },
             { nome: 'Física', score: 87 },
@@ -346,7 +405,7 @@ app.put('/api/user-stats', authenticateToken, async (req, res) => {
         horas_estudo, req.user.id
       ]);
 
-         res.json({
+      res.json({
         message: 'Estatísticas atualizadas com sucesso!',
         stats: result.rows[0]
       });
@@ -361,6 +420,7 @@ app.put('/api/user-stats', authenticateToken, async (req, res) => {
   }
 });
 
+// ROTAS DE REDAÇÃO
 app.get('/api/redacoes', authenticateToken, RedacaoController.listarRedacoes);
 app.post('/api/redacoes', authenticateToken, RedacaoController.criarRedacao);
 app.get('/api/redacoes/stats', authenticateToken, RedacaoController.estatisticasRedacoes);
@@ -368,6 +428,7 @@ app.get('/api/redacoes/:id', authenticateToken, RedacaoController.buscarRedacao)
 app.put('/api/redacoes/:id', authenticateToken, RedacaoController.atualizarRedacao);
 app.delete('/api/redacoes/:id', authenticateToken, RedacaoController.excluirRedacao);
 
+// ROTAS DE SIMULADOS
 app.get('/api/simulados', authenticateToken, simuladoController.listarSimulados);
 app.post('/api/simulados', authenticateToken, simuladoController.criarSimulado);
 app.get('/api/simulados/estatisticas', authenticateToken, simuladoController.obterEstatisticas);
@@ -375,6 +436,18 @@ app.get('/api/simulados/:id', authenticateToken, simuladoController.buscarSimula
 app.put('/api/simulados/:id', authenticateToken, simuladoController.atualizarSimulado);
 app.delete('/api/simulados/:id', authenticateToken, simuladoController.deletarSimulado);
 
+// ROTAS DE ESTUDOS
+app.get('/api/estudos', authenticateToken, estudoController.list);
+app.post('/api/estudos', authenticateToken, estudoController.create);
+app.get('/api/estudos/stats', authenticateToken, estudoController.getStats);
+app.get('/api/estudos/summary', authenticateToken, estudoController.getSummary);
+app.get('/api/estudos/:id', authenticateToken, estudoController.getById);
+app.put('/api/estudos/:id', authenticateToken, estudoController.update);
+app.delete('/api/estudos/:id', authenticateToken, estudoController.delete);
+app.get('/api/estudos/date/:date', authenticateToken, estudoController.getByDate);
+app.get('/api/estudos/materia/:materia', authenticateToken, estudoController.getByMateria);
+
+// ROTAS DE ATIVIDADES
 app.post('/api/user-activities', authenticateToken, async (req, res) => {
   try {
     const { tipo, descricao, pontuacao, materia } = req.body;
@@ -408,6 +481,7 @@ app.post('/api/user-activities', authenticateToken, async (req, res) => {
   }
 });
 
+// ROTAS DE PÁGINAS HTML
 app.get('/', (req, res) => {
   console.log('Acessando rota principal /');
   const indexPath = path.join(__dirname, 'public', 'index.html');
@@ -458,29 +532,22 @@ app.get('/MainPage.html', (req, res) => {
   }
 });
 
-app.post('/api/logout', authenticateToken, async (req, res) => {
-  try {
-    const pool = require('./config/database');
-    const client = await pool.connect();
-    
-    try {
-      await client.query(
-        'INSERT INTO user_activities (user_id, tipo, descricao) VALUES ($1, $2, $3)',
-        [req.user.id, 'logout', 'Logout realizado']
-      );
-
-      res.json({
-        message: 'Logout realizado com sucesso!',
-        redirectTo: '/'
-      });
-
-    } finally {
-      client.release();
-    }
-
-  } catch (err) {
-    console.error('Erro no logout:', err);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+app.get('/estudo.html', (req, res) => {
+  console.log('Acessando estudo.html');
+  const filePath = path.join(__dirname, 'public', 'estudo.html');
+  const fs = require('fs');
+  
+  if (fs.existsSync(filePath)) {
+    console.log('Arquivo estudo.html encontrado, servindo arquivo');
+    res.sendFile(filePath);
+  } else {
+    console.log('Arquivo estudo.html NÃO encontrado');
+    res.status(404).send(`
+      <h1>cicloVest - Página em Desenvolvimento</h1>
+      <p>A página de Estudos está sendo desenvolvida.</p>
+      <p>Arquivo não encontrado: ${filePath}</p>
+      <a href="/MainPage.html">Voltar ao Dashboard</a>
+    `);
   }
 });
 
@@ -560,13 +627,41 @@ app.get('/relatorios.html', (req, res) => {
   }
 });
 
+// ROTA DE LOGOUT
+app.post('/api/logout', authenticateToken, async (req, res) => {
+  try {
+    const pool = require('./config/database');
+    const client = await pool.connect();
+    
+    try {
+      await client.query(
+        'INSERT INTO user_activities (user_id, tipo, descricao) VALUES ($1, $2, $3)',
+        [req.user.id, 'logout', 'Logout realizado']
+      );
+
+      res.json({
+        message: 'Logout realizado com sucesso!',
+        redirectTo: '/'
+      });
+
+    } finally {
+      client.release();
+    }
+
+  } catch (err) {
+    console.error('Erro no logout:', err);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// MIDDLEWARE DE ERRO 404
 app.use('*', (req, res) => {
   console.log('Rota não encontrada:', req.originalUrl);
   
   if (req.originalUrl.startsWith('/api')) {
     res.status(404).json({ error: 'Endpoint da API não encontrado' });
   } else {
-    const protectedPages = ['/MainPage.html', '/simulado.html', '/redacao.html', '/materias.html', '/relatorios.html'];
+    const protectedPages = ['/MainPage.html', '/simulado.html', '/redacao.html', '/materias.html', '/relatorios.html', '/estudo.html'];
     const isProtectedPage = protectedPages.some(page => req.originalUrl.includes(page.replace('.html', '')));
     
     if (isProtectedPage) {
@@ -595,7 +690,6 @@ app.use('*', (req, res) => {
     }
   }
 });
-
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Servidor cicloVest rodando em http://localhost:${port}`);
@@ -617,7 +711,10 @@ app.listen(port, () => {
     'redacao.js',
     'simulado.html',
     'simulado.css',
-    'simulado.js'
+    'simulado.js',
+    'estudo.html',
+    'estudo.css',
+    'estudo.js'
   ];
   
   console.log('\n📋 Verificando arquivos:');
@@ -626,6 +723,23 @@ app.listen(port, () => {
     const exists = fs.existsSync(filePath);
     console.log(`${exists ? '✅' : '❌'} ${file}: ${filePath}`);
   });
+
+  console.log('\n🚀 API Endpoints disponíveis:');
+  console.log('📊 Dashboard: GET /api/dashboard-data');
+  console.log('👤 Usuários: POST /api/cadastro, POST /api/login, GET /api/perfil');
+  console.log('📝 Redações: GET|POST /api/redacoes, GET /api/redacoes/stats');
+  console.log('📋 Simulados: GET|POST /api/simulados, GET /api/simulados/estatisticas');
+  console.log('📚 Estudos: GET|POST /api/estudos, GET /api/estudos/stats, GET /api/estudos/summary');
+  console.log('🔧 Utilitários: GET /api/test-db, POST /api/setup-db');
+  
+  console.log('\n🌐 Páginas disponíveis:');
+  console.log('🏠 Home: http://localhost:' + port + '/');
+  console.log('📊 Dashboard: http://localhost:' + port + '/MainPage.html');
+  console.log('📚 Estudos: http://localhost:' + port + '/estudo.html');
+  console.log('📋 Simulados: http://localhost:' + port + '/simulado.html');
+  console.log('📝 Redações: http://localhost:' + port + '/redacao.html');
+  console.log('📖 Matérias: http://localhost:' + port + '/materias.html');
+  console.log('📈 Relatórios: http://localhost:' + port + '/relatorios.html');
 });
 
 module.exports = app;

@@ -50,7 +50,7 @@ class MenuComponent {
             <a href="/MainPage.html" class="menu-link" data-page="dashboard">Dashboard</a>
             <a href="/simulado.html" class="menu-link" data-page="simulados">Simulados</a>
             <a href="/redacao.html" class="menu-link" data-page="redacao">Redação</a>
-            <a href="/materias.html" class="menu-link" data-page="materias">Matérias</a>
+            <a href="/estudo.html" class="menu-link" data-page="estudos">Registrar Estudos</a>
             <a href="/relatorios.html" class="menu-link" data-page="relatorios">Relatórios</a>
           </div>
           
@@ -117,7 +117,7 @@ class MenuComponent {
         
         // Verificar se o usuário está autenticado antes de navegar para páginas protegidas
         const token = localStorage.getItem('token');
-        const protectedPages = ['dashboard', 'simulados', 'redacao', 'materias', 'relatorios'];
+        const protectedPages = ['dashboard', 'simulados', 'redacao', 'estudos', 'relatorios'];
         
         if (protectedPages.includes(page) && !token) {
           e.preventDefault();
@@ -138,11 +138,39 @@ class MenuComponent {
           menuMobile?.classList.remove('active');
         }
         
-        // Para a página de simulados, garantir navegação correta
+        // Para páginas específicas, garantir navegação correta
         if (page === 'simulados') {
-          e.preventDefault(); // Prevenir comportamento padrão
+          e.preventDefault();
           console.log('Navegando para simulados...');
           window.location.href = '/simulado.html';
+          return;
+        }
+        
+        if (page === 'estudos') {
+          e.preventDefault();
+          console.log('Navegando para estudos...');
+          window.location.href = '/estudo.html';
+          return;
+        }
+        
+        if (page === 'redacao') {
+          e.preventDefault();
+          console.log('Navegando para redação...');
+          window.location.href = '/redacao.html';
+          return;
+        }
+        
+        if (page === 'relatorios') {
+          e.preventDefault();
+          console.log('Navegando para relatórios...');
+          window.location.href = '/relatorios.html';
+          return;
+        }
+        
+        if (page === 'dashboard') {
+          e.preventDefault();
+          console.log('Navegando para dashboard...');
+          window.location.href = '/MainPage.html';
           return;
         }
         
@@ -158,7 +186,7 @@ class MenuComponent {
       if (!token) {
         // Se não há token e estamos em uma página protegida, redirecionar
         const currentPath = window.location.pathname;
-        const protectedPaths = ['/MainPage.html', '/simulado.html', '/redacao.html', '/materias.html', '/relatorios.html'];
+        const protectedPaths = ['/MainPage.html', '/simulado.html', '/redacao.html', '/estudo.html', '/relatorios.html'];
         
         if (protectedPaths.includes(currentPath)) {
           console.log('Usuário não autenticado em página protegida, redirecionando para login');
@@ -185,7 +213,7 @@ class MenuComponent {
       console.error('Erro ao carregar dados do usuário:', error);
       // Só redirecionar se estivermos em uma página protegida
       const currentPath = window.location.pathname;
-      const protectedPaths = ['/MainPage.html', '/simulado.html', '/redacao.html', '/materias.html', '/relatorios.html'];
+      const protectedPaths = ['/MainPage.html', '/simulado.html', '/redacao.html', '/estudo.html', '/relatorios.html'];
       
       if (protectedPaths.includes(currentPath)) {
         this.redirectToLogin();
@@ -236,7 +264,7 @@ class MenuComponent {
         'dashboard': ['/MainPage.html', '/'],
         'simulados': ['/simulado.html'],
         'redacao': ['/redacao.html'],
-        'materias': ['/materias.html'],
+        'estudos': ['/estudo.html'],
         'relatorios': ['/relatorios.html']
       };
       
@@ -261,6 +289,33 @@ class MenuComponent {
       simuladosLinks.forEach(link => {
         link.classList.add('active');
         console.log('Simulados ativo para:', currentPage);
+      });
+    }
+
+    // Set estudos as active for estudo.html
+    if (currentPage === '/estudo.html') {
+      const estudosLinks = document.querySelectorAll('[data-page="estudos"]');
+      estudosLinks.forEach(link => {
+        link.classList.add('active');
+        console.log('Estudos ativo para:', currentPage);
+      });
+    }
+
+    // Set redacao as active for redacao.html
+    if (currentPage === '/redacao.html') {
+      const redacaoLinks = document.querySelectorAll('[data-page="redacao"]');
+      redacaoLinks.forEach(link => {
+        link.classList.add('active');
+        console.log('Redação ativo para:', currentPage);
+      });
+    }
+
+    // Set relatorios as active for relatorios.html
+    if (currentPage === '/relatorios.html') {
+      const relatoriosLinks = document.querySelectorAll('[data-page="relatorios"]');
+      relatoriosLinks.forEach(link => {
+        link.classList.add('active');
+        console.log('Relatórios ativo para:', currentPage);
       });
     }
   }

@@ -39,6 +39,33 @@ CREATE TABLE IF NOT EXISTS user_activities (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Criar tabela de estudos
+CREATE TABLE IF NOT EXISTS estudos (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+    materia VARCHAR(100) NOT NULL CHECK (materia IN (
+        'Linguagens', 'História', 'Geografia', 'Filosofia', 'Sociologia', 
+        'Redação', 'Matemática', 'Física', 'Química', 'Biologia', 
+        'Inglês', 'Espanhol', 'Gramática', 'Outra'
+    )),
+    atividade VARCHAR(100) CHECK (atividade IN (
+        'Escrever redação', 'Assistir videoaulas', 'Responder questões', 
+        'Anki', 'Leitura', 'Resumos', 'Exercícios', 'Revisão', 'Outra'
+    )),
+    tempo_minutos INTEGER NOT NULL CHECK (tempo_minutos > 0),
+    quantidade_questoes INTEGER DEFAULT NULL,
+    descricao TEXT,
+    data_estudo DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para estudos
+CREATE INDEX IF NOT EXISTS idx_estudos_user_id ON estudos(user_id);
+CREATE INDEX IF NOT EXISTS idx_estudos_data ON estudos(data_estudo);
+CREATE INDEX IF NOT EXISTS idx_estudos_materia ON estudos(materia);
+CREATE INDEX IF NOT EXISTS idx_estudos_atividade ON estudos(atividade);
+
 -- Criar tabela de simulados
 CREATE TABLE IF NOT EXISTS simulados (
     id SERIAL PRIMARY KEY,
@@ -88,12 +115,15 @@ CREATE INDEX IF NOT EXISTS idx_redacoes_nivel ON redacoes(nivel_dificuldade);
 
 -- Trigger para atualizar updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$ language 'plpgsql';
+
+CREATE TRIGGER update_estudos_updated_at BEFORE UPDATE ON estudos
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_simulados_updated_at BEFORE UPDATE ON simulados
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

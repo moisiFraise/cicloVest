@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Estudos - CicloVest</title>
+    <link rel="stylesheet" href="estudo.css">
+    <link rel="stylesheet" href="menu.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="main-content">
+        <div class="container">
+            <header>
+                <h1>Registro de Estudos</h1>
+                <p>Acompanhe seu progresso diário, semanal e mensal</p>
+            </header>
+
+            <div class="main-content-grid">
+                <!-- Formulário de Registro -->
+                <section class="form-section">
+                    <h2>Registrar Estudo</h2>
+                    <form id="estudoForm" class="estudo-form">
+                        <div class="form-group">
+                            <label for="materia">Matéria</label>
+                            <select id="materia" name="materia" required>
+                                <option value="">Selecione uma matéria</option>
+                                <option value="Linguagens">Linguagens</option>
+                                <option value="História">História</option>
+                                <option value="Geografia">Geografia</option>
+                                <option value="Filosofia">Filosofia</option>
+                                <option value="Sociologia">Sociologia</option>
+                                <option value="Redação">Redação</option>
+                                <option value="Matemática">Matemática</option>
+                                <option value="Física">Física</option>
+                                <option value="Química">Química</option>
+                                <option value="Biologia">Biologia</option>
+                                <option value="Inglês">Inglês</option>
+                                <option value="Espanhol">Espanhol</option>
+                                <option value="Gramática">Gramática</option>
+                                <option value="Outra">Outra</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="atividade">Atividade (opcional)</label>
+                            <select id="atividade" name="atividade">
+                                <option value="">Selecione uma atividade</option>
+                                <option value="Escrever redação">Escrever redação</option>
+                                <option value="Assistir videoaulas">Assistir videoaulas</option>
+                                <option value="Responder questões">Responder questões</option>
+                                <option value="Anki">Anki</option>
+                                <option value="Leitura">Leitura</option>
+                                <option value="Resumos">Resumos</option>
+                                <option value="Exercícios">Exercícios</option>
+                                <option value="Revisão">Revisão</option>
+                                <option value="Outra">Outra</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tempo">Tempo de Estudo (minutos)</label>
+                                <input type="number" id="tempo" name="tempo" min="1" required>
+                            </div>
+
+                            <div class="form-group hidden" id="questoesGroup">
+                                <label for="questoes">Quantidade de Questões</label>
+                                <input type="number" id="questoes" name="questoes" min="1">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dataEstudo">Data do Estudo</label>
+                            <input type="date" id="dataEstudo" name="dataEstudo" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="descricao">Descrição (opcional)</label>
+                            <textarea id="descricao" name="descricao" rows="3" placeholder="Descreva o que foi estudado, dificuldades encontradas, etc."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-primary">
+                            <span class="btn-text">Registrar Estudo</span>
+                            <span class="btn-loading hidden">Salvando...</span>
+                        </button>
+                    </form>
+                </section>
+
+                <!-- Filtros e Gráficos -->
+                <section class="charts-section">
+                    <div class="chart-controls">
+                        <h2>Estatísticas de Estudo</h2>
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-period="daily">Diário</button>
+                            <button class="filter-btn" data-period="weekly">Semanal</button>
+                            <button class="filter-btn" data-period="monthly">Mensal</button>
+                        </div>
+                    </div>
+
+                    <div class="charts-container">
+                        <div class="chart-wrapper">
+                            <canvas id="tempoChart"></canvas>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="materiaChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Resumo Estatístico -->
+                    <div class="stats-summary">
+                        <div class="stat-card">
+                            <h3>Total de Horas</h3>
+                            <span id="totalHoras">0h</span>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Questões Respondidas</h3>
+                            <span id="totalQuestoes">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Dias Estudados</h3>
+                            <span id="diasEstudados">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Matéria Favorita</h3>
+                            <span id="materiaFavorita">-</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+                      <!-- Lista de Estudos Recentes -->
+            <section class="recent-studies">
+                <h2>Estudos Recentes</h2>
+                <div id="estudosList" class="estudos-list">
+                    <div class="loading-container">
+                        <div class="loading-spinner"></div>
+                        <p>Carregando estudos...</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Notificação -->
+    <div id="notification" class="notification"></div>
+
+    <!-- Scripts -->
+    <script src="menu.js"></script>
+    <script src="estudo.js"></script>
+</body>
+</html>
