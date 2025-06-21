@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="questao.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="main-content">
@@ -56,6 +57,75 @@
                     <div class="stat-info">
                         <h3 id="tempo-medio">0min</h3>
                         <p>Tempo Médio/Questão</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção de Gráficos -->
+            <div class="charts-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-pie"></i> Análise por Matéria</h2>
+                    <div class="chart-filters">
+                        <select id="chart-filter-materia" class="chart-filter-select">
+                            <option value="">Todas as matérias</option>
+                            <option value="Linguagens">Linguagens</option>
+                            <option value="História">História</option>
+                            <option value="Geografia">Geografia</option>
+                            <option value="Filosofia">Filosofia</option>
+                            <option value="Sociologia">Sociologia</option>
+                            <option value="Redação">Redação</option>
+                            <option value="Matemática">Matemática</option>
+                            <option value="Física">Física</option>
+                            <option value="Química">Química</option>
+                            <option value="Biologia">Biologia</option>
+                            <option value="Inglês">Inglês</option>
+                            <option value="Espanhol">Espanhol</option>
+                            <option value="Gramática">Gramática</option>
+                            <option value="Outra">Outra</option>
+                        </select>
+                        <button class="btn-refresh-charts" id="btn-refresh-charts" type="button" title="Atualizar gráficos">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3><i class="fas fa-trophy"></i> Matéria com Mais Acertos</h3>
+                            <div class="chart-info" id="best-subject-info">
+                                <span class="subject-name" id="best-subject-name">-</span>
+                                <span class="subject-percentage" id="best-subject-percentage">0%</span>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="bestSubjectChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3><i class="fas fa-exclamation-triangle"></i> Matéria com Menos Acertos</h3>
+                            <div class="chart-info" id="worst-subject-info">
+                                <span class="subject-name" id="worst-subject-name">-</span>
+                                <span class="subject-percentage" id="worst-subject-percentage">0%</span>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="worstSubjectChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card chart-card-wide">
+                        <div class="chart-header">
+                            <h3><i class="fas fa-chart-pie"></i> Distribuição Geral por Matéria</h3>
+                            <div class="chart-legend" id="general-chart-legend">
+                                <!-- Legend será gerada dinamicamente -->
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="generalSubjectsChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -126,7 +196,8 @@
                             </label>
                         </div>
                     </div>
-                                        <div class="form-group tempo-group" id="tempo-group" style="display: none;">
+
+                    <div class="form-group tempo-group" id="tempo-group" style="display: none;">
                         <label for="tempo_total_minutos">
                             <i class="fas fa-clock"></i> Tempo Total (minutos) *
                         </label>
@@ -233,7 +304,7 @@
         <p>Carregando dados...</p>
     </div>
 
-    <!-- Modal de Confirmação -->
+       <!-- Modal de Confirmação -->
     <div class="modal" id="confirm-modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">

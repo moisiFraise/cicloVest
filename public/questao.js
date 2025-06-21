@@ -4,6 +4,15 @@ class QuestaoManager {
         this.itemsPerPage = 10;
         this.filters = {};
         this.editingId = null;
+        this.charts = {
+            bestSubject: null,
+            worstSubject: null,
+            generalSubjects: null
+        };
+        this.chartColors = [
+            '#cba6f7', '#f38ba8', '#89b4fa', '#a6e3a1', '#f9e2af',
+            '#fab387', '#eba0ac', '#89dceb', '#b4befe', '#f5c2e7'
+        ];
         this.init();
     }
 
@@ -11,6 +20,7 @@ class QuestaoManager {
         this.bindEvents();
         this.setDefaultDate();
         this.loadStatistics();
+        this.loadCharts();
         this.loadQuestoes();
     }
 
@@ -36,6 +46,10 @@ class QuestaoManager {
         document.getElementById('btn-limpar-filtros').addEventListener('click', () => this.clearFilters());
         document.getElementById('btn-refresh').addEventListener('click', () => this.refreshData());
 
+        // Chart events
+        document.getElementById('chart-filter-materia').addEventListener('change', () => this.loadCharts());
+        document.getElementById('btn-refresh-charts').addEventListener('click', () => this.refreshCharts());
+
         // Modal events
         document.getElementById('btn-cancel-modal').addEventListener('click', () => this.hideModal());
         document.getElementById('btn-confirm-modal').addEventListener('click', () => this.confirmAction());
@@ -53,8 +67,7 @@ class QuestaoManager {
         form.classList.toggle('collapsed');
         toggleBtn.classList.toggle('collapsed');
     }
-
-    toggleTempoField(e) {
+        toggleTempoField(e) {
         const tempoGroup = document.getElementById('tempo-group');
         const tempoInput = document.getElementById('tempo_total_minutos');
         
@@ -157,6 +170,7 @@ class QuestaoManager {
                 this.showSuccess(this.editingId ? 'Questão atualizada com sucesso!' : 'Questão registrada com sucesso!');
                 this.resetForm();
                 this.loadStatistics();
+                this.loadCharts();
                 this.loadQuestoes();
             } else {
                 const error = await response.json();
@@ -236,6 +250,319 @@ class QuestaoManager {
         
         const tempoMedio = estatisticas_gerais.tempo_medio_geral;
         document.getElementById('tempo-medio').textContent = tempoMedio ? `${tempoMedio}min` : 'N/A';
+    }
+
+    async loadCharts() {
+        try {
+            const materiaFilter = document.getElementById('chart-filter-materia').value;
+            const params = new URLSearchParams();
+            
+            if (materiaFilter) {
+                params.append('materia', materiaFilter);
+            }
+
+            const response = await fetch(`/api/questoes/estatisticas?${params}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+
+            if (response.ok) {
+                const stats = await response.json();
+                this.updateCharts(stats);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar dados dos gráficos:', error);
+            this.showChartError();
+        }
+    }
+
+    updateCharts(stats) {
+        const { por_materia } = stats;
+        
+        if (!por_materia || por_materia.length === 0) {
+            this.showEmptyCharts();
+            return;
+        }
+
+        // Ordenar por média de acertos
+        const sortedByBest = [...por_materia].sort((a, b) => b.media_acertos - a.media_acertos);
+        const sortedByWorst = [...por_materia].sort((a, b) => a.media_acertos - b.media_acertos);
+
+        // Melhor matéria
+        const bestSubject = sortedByBest[0];
+        this.updateBestSubjectChart(bestSubject);
+
+        // Pior matéria
+        const worstSubject = sortedByWorst[0];
+        this.updateWorstSubjectChart(worstSubject);
+
+        // Gráfico geral
+        this.updateGeneralChart(por_materia);
+    }
+
+    updateBestSubjectChart(subject) {
+        const ctx = document.getElementById('bestSubjectChart').getContext('2d');
+        
+        // Atualizar informações
+        document.getElementById('best-subject-name').textContent = subject.materia;
+        document.getElementById('best-subject-percentage').textContent = `${subject.media_acertos}%`;
+
+        // Destruir gráfico anterior se existir
+        if (this.charts.bestSubject) {
+            this.charts.bestSubject.destroy();
+        }
+
+        const acertos = subject.acertos;
+        const erros = subject.questoes - subject.acertos;
+
+        this.charts.bestSubject = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Acertos', 'Erros'],
+                datasets: [{
+                    data: [acertos, erros],
+                    backgroundColor: ['#a6e3a1', '#f38ba8'],
+                    borderColor: ['#40a02b', '#d20f39'],
+                    borderWidth: 2,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1e1e2e',
+                        titleColor: '#cdd6f4',
+                        bodyColor: '#bac2de',
+                        borderColor: '#45475a',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label;
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+
+    updateWorstSubjectChart(subject) {
+        const ctx = document.getElementById('worstSubjectChart').getContext('2d');
+        
+        // Atualizar informações
+        document.getElementById('worst-subject-name').textContent = subject.materia;
+        document.getElementById('worst-subject-percentage').textContent = `${subject.media_acertos}%`;
+
+        // Destruir gráfico anterior se existir
+        if (this.charts.worstSubject) {
+            this.charts.worstSubject.destroy();
+        }
+
+        const acertos = subject.acertos;
+        const erros = subject.questoes - subject.acertos;
+
+        this.charts.worstSubject = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Acertos', 'Erros'],
+                datasets: [{
+                    data: [acertos, erros],
+                    backgroundColor: ['#f9e2af', '#f38ba8'],
+                    borderColor: ['#df8e1d', '#d20f39'],
+                    borderWidth: 2,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1e1e2e',
+                        titleColor: '#cdd6f4',
+                        bodyColor: '#bac2de',
+                        borderColor: '#45475a',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label;
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '60%'
+            }
+        });
+    }
+
+    updateGeneralChart(materias) {
+        const ctx = document.getElementById('generalSubjectsChart').getContext('2d');
+        
+        // Destruir gráfico anterior se existir
+        if (this.charts.generalSubjects) {
+            this.charts.generalSubjects.destroy();
+        }
+
+        const labels = materias.map(m => m.materia);
+        const data = materias.map(m => m.questoes);
+        const colors = this.chartColors.slice(0, materias.length);
+
+        this.charts.generalSubjects = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    borderColor: colors.map(color => this.darkenColor(color, 20)),
+                    borderWidth: 2,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1e1e2e',
+                        titleColor: '#cdd6f4',
+                        bodyColor: '#bac2de',
+                        borderColor: '#45475a',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label;
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} questões (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Atualizar legenda personalizada
+        this.updateGeneralChartLegend(materias, colors);
+    }
+        updateGeneralChartLegend(materias, colors) {
+        const legendContainer = document.getElementById('general-chart-legend');
+        const totalQuestoes = materias.reduce((sum, m) => sum + m.questoes, 0);
+        
+        legendContainer.innerHTML = materias.map((materia, index) => {
+            const percentage = ((materia.questoes / totalQuestoes) * 100).toFixed(1);
+            return `
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: ${colors[index]}"></div>
+                    <span class="legend-label">${materia.materia}</span>
+                    <span class="legend-percentage">${percentage}%</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    showEmptyCharts() {
+        // Limpar gráficos existentes
+        Object.values(this.charts).forEach(chart => {
+            if (chart) chart.destroy();
+        });
+
+        // Mostrar estado vazio
+        const chartContainers = document.querySelectorAll('.chart-container');
+        chartContainers.forEach(container => {
+            container.innerHTML = `
+                <div class="chart-empty">
+                    <i class="fas fa-chart-pie"></i>
+                    <p>Nenhum dado disponível</p>
+                </div>
+            `;
+        });
+
+        // Limpar informações
+        document.getElementById('best-subject-name').textContent = '-';
+        document.getElementById('best-subject-percentage').textContent = '0%';
+        document.getElementById('worst-subject-name').textContent = '-';
+        document.getElementById('worst-subject-percentage').textContent = '0%';
+        document.getElementById('general-chart-legend').innerHTML = '';
+    }
+
+    showChartError() {
+        const chartContainers = document.querySelectorAll('.chart-container');
+        chartContainers.forEach(container => {
+            container.innerHTML = `
+                <div class="chart-empty">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Erro ao carregar dados</p>
+                </div>
+            `;
+        });
+    }
+
+    refreshCharts() {
+        this.showChartNotification('Atualizando gráficos...');
+        this.loadCharts();
+    }
+
+    showChartNotification(message) {
+        // Remove notificações existentes
+        const existing = document.querySelector('.notification-chart');
+        if (existing) {
+            existing.remove();
+        }
+
+        const notification = document.createElement('div');
+        notification.className = 'notification-chart';
+        notification.innerHTML = `
+            <div class="notification-chart-content">
+                <i class="fas fa-chart-line"></i>
+                <span>${message}</span>
+                <button class="notification-chart-close" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Auto remove após 3 segundos
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+
+    darkenColor(color, percent) {
+        const num = parseInt(color.replace("#", ""), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) - amt;
+        const G = (num >> 8 & 0x00FF) - amt;
+        const B = (num & 0x0000FF) - amt;
+        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+            (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
     }
 
     async loadQuestoes() {
@@ -421,6 +748,7 @@ class QuestaoManager {
 
     refreshData() {
         this.loadStatistics();
+        this.loadCharts();
         this.loadQuestoes();
     }
 
@@ -503,6 +831,7 @@ class QuestaoManager {
             if (response.ok) {
                 this.showSuccess('Questão excluída com sucesso!');
                 this.loadStatistics();
+                this.loadCharts();
                 this.loadQuestoes();
             } else {
                 const error = await response.json();
@@ -537,8 +866,7 @@ class QuestaoManager {
     showLoading(show) {
         document.getElementById('loading').style.display = show ? 'flex' : 'none';
     }
-
-    showSuccess(message) {
+        showSuccess(message) {
         this.showNotification(message, 'success');
     }
 
@@ -595,13 +923,13 @@ const notificationStyles = `
     }
 
     .notification-success {
-        background: linear-gradient(135deg, #28a745, #20c997);
-        color: white;
+        background: linear-gradient(135deg, #a6e3a1, #40a02b);
+        color: #1e1e2e;
     }
 
     .notification-error {
-        background: linear-gradient(135deg, #dc3545, #e74c3c);
-        color: white;
+        background: linear-gradient(135deg, #f38ba8, #d20f39);
+        color: #1e1e2e;
     }
 
     .notification-content {
@@ -623,7 +951,7 @@ const notificationStyles = `
     }
 
     .notification-close:hover {
-        background: rgba(255,255,255,0.2);
+        background: rgba(0,0,0,0.1);
     }
 
     @keyframes slideIn {
@@ -634,6 +962,213 @@ const notificationStyles = `
         to {
             transform: translateX(0);
             opacity: 1;
+        }
+    }
+
+    /* Estilos para os cards de questão */
+    .questao-item {
+        background: var(--ctp-surface1);
+        border: 1px solid var(--ctp-surface2);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .questao-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        border-color: var(--ctp-mauve);
+    }
+
+    .questao-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--ctp-surface2);
+    }
+
+    .questao-materia {
+        background: linear-gradient(135deg, var(--ctp-mauve), var(--ctp-pink));
+        color: var(--ctp-base);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .questao-data {
+        color: var(--ctp-subtext1);
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .questao-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .questao-stat {
+        text-align: center;
+        padding: 0.75rem;
+        background: var(--ctp-surface0);
+        border-radius: 8px;
+        border: 1px solid var(--ctp-surface2);
+        transition: all 0.3s ease;
+    }
+
+    .questao-stat:hover {
+        border-color: var(--ctp-mauve);
+        transform: translateY(-1px);
+    }
+
+    .questao-stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--ctp-text);
+        margin-bottom: 0.25rem;
+    }
+
+    .questao-stat-label {
+        font-size: 0.7rem;
+        color: var(--ctp-subtext1);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+
+    .questao-acertos .questao-stat-value {
+        color: var(--ctp-green);
+    }
+
+    .questao-erros .questao-stat-value {
+        color: var(--ctp-red);
+    }
+
+    .questao-porcentagem .questao-stat-value {
+        color: var(--ctp-blue);
+    }
+
+    .questao-tempo .questao-stat-value {
+        color: var(--ctp-yellow);
+    }
+
+    .questao-observacoes {
+        background: var(--ctp-surface0);
+        border: 1px solid var(--ctp-surface2);
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        color: var(--ctp-subtext1);
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+
+    .questao-observacoes i {
+        color: var(--ctp-blue);
+        margin-right: 0.5rem;
+    }
+
+    .questao-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+    }
+
+    .btn-edit, .btn-delete {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-edit {
+        background: linear-gradient(135deg, var(--ctp-blue), var(--ctp-sapphire));
+        color: var(--ctp-base);
+    }
+
+    .btn-edit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(137, 180, 250, 0.4);
+    }
+
+    .btn-delete {
+        background: linear-gradient(135deg, var(--ctp-red), var(--ctp-maroon));
+        color: var(--ctp-base);
+    }
+
+    .btn-delete:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(243, 139, 168, 0.4);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--ctp-subtext1);
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        color: var(--ctp-surface2);
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        color: var(--ctp-text);
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+        .questao-stats {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .questao-actions {
+            flex-direction: column;
+        }
+
+        .btn-edit, .btn-delete {
+            justify-content: center;
+        }
+
+        .questao-item-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .questao-stats {
+            grid-template-columns: 1fr;
+        }
+
+        .questao-stat-value {
+            font-size: 1.1rem;
+        }
+
+        .questao-item {
+            padding: 0.75rem;
         }
     }
 `;
@@ -648,4 +1183,3 @@ let questaoManager;
 document.addEventListener('DOMContentLoaded', () => {
     questaoManager = new QuestaoManager();
 });
-
