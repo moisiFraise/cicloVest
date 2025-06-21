@@ -22,7 +22,7 @@ class MenuComponent {
           
           <ul class="menu-links">
             <li><a href="/MainPage.html" class="menu-link" data-page="dashboard">Dashboard</a></li>
-            <li><a href="/simulados.html" class="menu-link" data-page="simulados">Simulados</a></li>
+            <li><a href="/simulado.html" class="menu-link" data-page="simulados">Simulados</a></li>
             <li><a href="/redacao.html" class="menu-link" data-page="redacao">Redação</a></li>
             <li><a href="/materias.html" class="menu-link" data-page="materias">Matérias</a></li>
             <li><a href="/relatorios.html" class="menu-link" data-page="relatorios">Relatórios</a></li>
@@ -48,7 +48,7 @@ class MenuComponent {
         <div class="menu-mobile" id="menu-mobile">
           <div class="menu-mobile-links">
             <a href="/MainPage.html" class="menu-link" data-page="dashboard">Dashboard</a>
-            <a href="/simulados.html" class="menu-link" data-page="simulados">Simulados</a>
+            <a href="/simulado.html" class="menu-link" data-page="simulados">Simulados</a>
             <a href="/redacao.html" class="menu-link" data-page="redacao">Redação</a>
             <a href="/materias.html" class="menu-link" data-page="materias">Matérias</a>
             <a href="/relatorios.html" class="menu-link" data-page="relatorios">Relatórios</a>
@@ -70,8 +70,10 @@ class MenuComponent {
     // Inserir o menu no início do body
     document.body.insertAdjacentHTML('afterbegin', menuHTML);
     
-    // Adicionar padding-top ao body para compensar o menu fixo
-    document.body.style.paddingTop = '70px';
+    // NÃO sobrescrever o padding-top se já existir no CSS
+    if (!document.body.style.paddingTop) {
+      document.body.style.paddingTop = '70px';
+    }
   }
 
   bindEvents() {
@@ -136,8 +138,16 @@ class MenuComponent {
           menuMobile?.classList.remove('active');
         }
         
-        // Permitir navegação normal - o navegador seguirá o href
-        // Não prevenir o comportamento padrão aqui
+        // Para a página de simulados, garantir navegação correta
+        if (page === 'simulados') {
+          e.preventDefault(); // Prevenir comportamento padrão
+          console.log('Navegando para simulados...');
+          window.location.href = '/simulado.html';
+          return;
+        }
+        
+        // Para outras páginas, permitir navegação normal
+        // Não prevenir o comportamento padrão aqui para outras páginas
       });
     });
   }
@@ -148,7 +158,7 @@ class MenuComponent {
       if (!token) {
         // Se não há token e estamos em uma página protegida, redirecionar
         const currentPath = window.location.pathname;
-        const protectedPaths = ['/MainPage.html', '/simulados.html', '/redacao.html', '/materias.html', '/relatorios.html'];
+        const protectedPaths = ['/MainPage.html', '/simulado.html', '/redacao.html', '/materias.html', '/relatorios.html'];
         
         if (protectedPaths.includes(currentPath)) {
           console.log('Usuário não autenticado em página protegida, redirecionando para login');
@@ -175,7 +185,7 @@ class MenuComponent {
       console.error('Erro ao carregar dados do usuário:', error);
       // Só redirecionar se estivermos em uma página protegida
       const currentPath = window.location.pathname;
-      const protectedPaths = ['/MainPage.html', '/simulados.html', '/redacao.html', '/materias.html', '/relatorios.html'];
+      const protectedPaths = ['/MainPage.html', '/simulado.html', '/redacao.html', '/materias.html', '/relatorios.html'];
       
       if (protectedPaths.includes(currentPath)) {
         this.redirectToLogin();
@@ -224,7 +234,7 @@ class MenuComponent {
       // Mapear páginas para seus caminhos
       const pageMap = {
         'dashboard': ['/MainPage.html', '/'],
-        'simulados': ['/simulados.html'],
+        'simulados': ['/simulado.html'],
         'redacao': ['/redacao.html'],
         'materias': ['/materias.html'],
         'relatorios': ['/relatorios.html']
@@ -242,6 +252,15 @@ class MenuComponent {
       dashboardLinks.forEach(link => {
         link.classList.add('active');
         console.log('Dashboard ativo para:', currentPage);
+      });
+    }
+
+    // Set simulados as active for simulado.html
+    if (currentPage === '/simulado.html') {
+      const simuladosLinks = document.querySelectorAll('[data-page="simulados"]');
+      simuladosLinks.forEach(link => {
+        link.classList.add('active');
+        console.log('Simulados ativo para:', currentPage);
       });
     }
   }

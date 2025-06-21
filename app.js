@@ -61,7 +61,13 @@ app.get('/api', (req, res) => {
       'POST /api/redacoes (protegida)',
       'PUT /api/redacoes/:id (protegida)',
       'DELETE /api/redacoes/:id (protegida)',
-      'GET /api/redacoes/stats (protegida)'
+      'GET /api/redacoes/stats (protegida)',
+      'GET /api/simulados (protegida)',
+      'POST /api/simulados (protegida)',
+      'GET /api/simulados/estatisticas (protegida)',
+      'GET /api/simulados/:id (protegida)',
+      'PUT /api/simulados/:id (protegida)',
+      'DELETE /api/simulados/:id (protegida)'
     ]
   });
 });
@@ -141,6 +147,39 @@ app.post('/api/setup-db', async (req, res) => {
         )
       `);
 
+      // Criar tabela de simulados
+       await client.query(`
+        CREATE TABLE IF NOT EXISTS simulados (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+          nome VARCHAR(255) NOT NULL,
+          tipo_simulado VARCHAR(50) NOT NULL CHECK (tipo_simulado IN ('Prova Antiga', 'SAS', 'Bernoulli', 'Poliedro', 'Hexag', 'Outro')),
+          dia_prova VARCHAR(20) NOT NULL CHECK (dia_prova IN ('Primeiro Dia', 'Segundo Dia')),
+          total_questoes INTEGER NOT NULL CHECK (total_questoes > 0),
+          questoes_acertadas INTEGER NOT NULL CHECK (questoes_acertadas >= 0),
+          porcentagem_acertos DECIMAL(5,2) GENERATED ALWAYS AS (ROUND((questoes_acertadas::DECIMAL / total_questoes::DECIMAL) * 100, 2)) STORED,
+          data_realizacao DATE NOT NULL,
+          tempo_realizacao INTEGER NOT NULL,
+          nivel_dificuldade VARCHAR(20) NOT NULL CHECK (nivel_dificuldade IN ('facil', 'medio', 'dificil')),
+          descricao TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Índices para simulados
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_simulados_user_id ON simulados(user_id)
+      `);
+      
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_simulados_data ON simulados(data_realizacao)
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_simulados_tipo ON simulados(tipo_simulado)
+      `);
+
       // Criar tabela de redações
       await client.query(`
         CREATE TABLE IF NOT EXISTS redacoes (
@@ -167,6 +206,27 @@ app.post('/api/setup-db', async (req, res) => {
       
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_redacoes_created_at ON redacoes(created_at)
+      `);
+
+      // Criar função para atualizar updated_at
+      await client.query(`
+        CREATE OR REPLACE FUNCTION update_updated_at_column()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.updated_at = CURRENT_TIMESTAMP;
+            RETURN NEW;
+        END;
+        $$ language 'plpgsql'
+      `);
+
+      // Criar triggers
+      await client.query(`
+        DROP TRIGGER IF EXISTS update_simulados_updated_at ON simulados
+      `);
+      
+      await client.query(`
+        CREATE TRIGGER update_simulados_updated_at BEFORE UPDATE ON simulados
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
       `);
 
       res.json({ message: 'Tabelas criadas com sucesso!' });
@@ -305,6 +365,7 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
+
 app.get('/api/perfil', authenticateToken, async (req, res) => {
   try {
     const client = await pool.connect();
@@ -424,7 +485,99 @@ app.get('/api/dashboard-data', authenticateToken, async (req, res) => {
   }
 });
 
-// ROTAS DE REDAÇÃO
+/ Função auxiliar para atualizar estatísticas do usuário
+async function atualizarEstatisticasUsuario(userId, client) {
+  try {
+    // Calcular estatísticas de simulados
+    const simuladosStats = await client.query(`
+      SELECT 
+        COUNT(*) as total_simulados,
+        AVG(porcentagem_acertos) as media_simulados,
+        SUM(total_questoes) as total_questoes,
+        SUM(questoes_acertadas) as questoes_corretas
+      FROM simulados 
+      WHERE user_id = $1
+    `, [userId]);
+
+    const stats = simuladosStats.rows[0];
+
+    // Atualizar user_stats
+    await client.query(`
+      UPDATE user_stats 
+      SET 
+        simulados_realizados = $1,
+        media_simulados = $2,
+        total_questoes = COALESCE(total_questoes, 0) + $3,
+        questoes_corretas = COALESCE(questoes_corretas, 0) + $4,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $5
+    `, [
+      parseInt(stats.total_simulados) || 0,
+      parseFloat(stats.media_simulados) || 0,
+      parseInt(stats.total_questoes) || 0,
+      parseInt(stats.questoes_corretas) || 0,
+      userId
+    ]);
+
+  } catch (err) {
+    console.error('Erro ao atualizar estatísticas do usuário:', err);
+  }
+}
+
+
+// Rota para atualizar estatísticas do usuário
+app.put('/api/user-stats', authenticateToken, async (req, res) => {
+  try {
+    const {
+      media_geral,
+      media_simulados,
+      nota_redacao,
+      total_questoes,
+      questoes_corretas,
+      simulados_realizados,
+      redacoes_escritas,
+      horas_estudo
+    } = req.body;
+
+    const client = await pool.connect();
+    
+    try {
+      const result = await client.query(`
+        UPDATE user_stats 
+        SET 
+          media_geral = COALESCE($1, media_geral),
+          media_simulados = COALESCE($2, media_simulados),
+          nota_redacao = COALESCE($3, nota_redacao),
+          total_questoes = COALESCE($4, total_questoes),
+          questoes_corretas = COALESCE($5, questoes_corretas),
+          simulados_realizados = COALESCE($6, simulados_realizados),
+          redacoes_escritas = COALESCE($7, redacoes_escritas),
+          horas_estudo = COALESCE($8, horas_estudo),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = $9
+        RETURNING *
+      `, [
+        media_geral, media_simulados, nota_redacao, total_questoes,
+        questoes_corretas, simulados_realizados, redacoes_escritas,
+        horas_estudo, req.user.id
+      ]);
+
+      res.json({
+        message: 'Estatísticas atualizadas com sucesso!',
+        stats: result.rows[0]
+      });
+
+    } finally {
+      client.release();
+    }
+
+  } catch (err) {
+    console.error('Erro ao atualizar estatísticas:', err);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// ROTAS DE REDAÇÃO (mantidas como estavam)
 
 // Listar redações do usuário
 app.get('/api/redacoes', authenticateToken, async (req, res) => {
@@ -492,7 +645,6 @@ app.get('/api/redacoes', authenticateToken, async (req, res) => {
     } finally {
       client.release();
     }
-
   } catch (err) {
     console.error('Erro ao buscar redações:', err);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -915,46 +1067,100 @@ app.get('/api/redacoes/stats', authenticateToken, async (req, res) => {
   }
 });
 
-// Rota para atualizar estatísticas do usuário
-app.put('/api/user-stats', authenticateToken, async (req, res) => {
+// ROTAS DE SIMULADOS
+
+// Listar simulados do usuário
+app.get('/api/simulados', authenticateToken, async (req, res) => {
   try {
-    const {
-      media_geral,
-      media_simulados,
-      nota_redacao,
-      total_questoes,
-      questoes_corretas,
-      simulados_realizados,
-      redacoes_escritas,
-      horas_estudo
-    } = req.body;
+    const { page = 1, limit = 10, tipo, dia, nivel, nome, orderBy = 'created_at', order = 'DESC' } = req.query;
+    const offset = (page - 1) * limit;
 
     const client = await pool.connect();
     
     try {
-      const result = await client.query(`
-        UPDATE user_stats 
-        SET 
-          media_geral = COALESCE($1, media_geral),
-          media_simulados = COALESCE($2, media_simulados),
-          nota_redacao = COALESCE($3, nota_redacao),
-          total_questoes = COALESCE($4, total_questoes),
-          questoes_corretas = COALESCE($5, questoes_corretas),
-          simulados_realizados = COALESCE($6, simulados_realizados),
-          redacoes_escritas = COALESCE($7, redacoes_escritas),
-          horas_estudo = COALESCE($8, horas_estudo),
-          updated_at = CURRENT_TIMESTAMP
-        WHERE user_id = $9
-        RETURNING *
-      `, [
-        media_geral, media_simulados, nota_redacao, total_questoes,
-        questoes_corretas, simulados_realizados, redacoes_escritas,
-        horas_estudo, req.user.id
-      ]);
+      let query = `
+        SELECT id, nome, tipo_simulado, dia_prova, total_questoes, questoes_acertadas, 
+               porcentagem_acertos, data_realizacao, tempo_realizacao, nivel_dificuldade, 
+               descricao, created_at, updated_at
+        FROM simulados 
+        WHERE user_id = $1
+      `;
+      
+      const params = [req.user.id];
+      
+      // Filtros
+      if (tipo && ['Prova Antiga', 'SAS', 'Bernoulli', 'Poliedro', 'Hexag', 'Outro'].includes(tipo)) {
+        query += ` AND tipo_simulado = $${params.length + 1}`;
+        params.push(tipo);
+      }
+      
+      if (dia && ['Primeiro Dia', 'Segundo Dia'].includes(dia)) {
+        query += ` AND dia_prova = $${params.length + 1}`;
+        params.push(dia);
+      }
+      
+      if (nivel && ['facil', 'medio', 'dificil'].includes(nivel)) {
+        query += ` AND nivel_dificuldade = $${params.length + 1}`;
+        params.push(nivel);
+      }
+      
+      if (nome) {
+        query += ` AND nome ILIKE $${params.length + 1}`;
+        params.push(`%${nome}%`);
+      }
+      
+      // Ordenação
+      const validOrderBy = ['created_at', 'porcentagem_acertos', 'nome', 'data_realizacao'];
+      const validOrder = ['ASC', 'DESC'];
+      
+      if (validOrderBy.includes(orderBy) && validOrder.includes(order.toUpperCase())) {
+        query += ` ORDER BY ${orderBy} ${order.toUpperCase()}`;
+      } else {
+        query += ` ORDER BY created_at DESC`;
+      }
+      
+      // Paginação
+      query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+      params.push(parseInt(limit), offset);
+
+      const result = await client.query(query, params);
+
+      // Contar total de registros
+      let countQuery = 'SELECT COUNT(*) FROM simulados WHERE user_id = $1';
+      const countParams = [req.user.id];
+      
+      if (tipo && ['Prova Antiga', 'SAS', 'Bernoulli', 'Poliedro', 'Hexag', 'Outro'].includes(tipo)) {
+        countQuery += ` AND tipo_simulado = $${countParams.length + 1}`;
+        countParams.push(tipo);
+      }
+      
+      if (dia && ['Primeiro Dia', 'Segundo Dia'].includes(dia)) {
+        countQuery += ` AND dia_prova = $${countParams.length + 1}`;
+        countParams.push(dia);
+      }
+      
+      if (nivel && ['facil', 'medio', 'dificil'].includes(nivel)) {
+        countQuery += ` AND nivel_dificuldade = $${countParams.length + 1}`;
+        countParams.push(nivel);
+      }
+      
+      if (nome) {
+        countQuery += ` AND nome ILIKE $${countParams.length + 1}`;
+        countParams.push(`%${nome}%`);
+      }
+      
+      const countResult = await client.query(countQuery, countParams);
+      const total = parseInt(countResult.rows[0].count);
 
       res.json({
-        message: 'Estatísticas atualizadas com sucesso!',
-        stats: result.rows[0]
+        success: true,
+        simulados: result.rows,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit)
+        }
       });
 
     } finally {
@@ -962,10 +1168,510 @@ app.put('/api/user-stats', authenticateToken, async (req, res) => {
     }
 
   } catch (err) {
-    console.error('Erro ao atualizar estatísticas:', err);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    console.error('Erro ao buscar simulados:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Erro interno do servidor' 
+    });
   }
 });
+app.post('/api/simulados', authenticateToken, async (req, res) => {
+  try {
+    const {
+      nome,
+      tipo_simulado,
+      dia_prova,
+      total_questoes,
+      questoes_acertadas,
+      data_realizacao,
+      tempo_realizacao,
+      nivel_dificuldade,
+      descricao
+    } = req.body;
+
+    // Validações
+    if (!nome || !tipo_simulado || !dia_prova || !total_questoes || questoes_acertadas === undefined || !data_realizacao || !tempo_realizacao || !nivel_dificuldade) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Todos os campos obrigatórios devem ser preenchidos' 
+      });
+    }
+
+    if (!['Prova Antiga', 'SAS', 'Bernoulli', 'Poliedro', 'Hexag', 'Outro'].includes(tipo_simulado)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Tipo de simulado inválido' 
+      });
+    }
+
+    if (!['Primeiro Dia', 'Segundo Dia'].includes(dia_prova)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Dia da prova inválido' 
+      });
+    }
+
+    if (!['facil', 'medio', 'dificil'].includes(nivel_dificuldade)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Nível de dificuldade inválido' 
+      });
+    }
+
+    const totalQuestoes = parseInt(total_questoes);
+    const questoesAcertadas = parseInt(questoes_acertadas);
+    const tempoRealizacao = parseInt(tempo_realizacao);
+
+    if (totalQuestoes <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Total de questões deve ser maior que zero' 
+      });
+    }
+
+    if (questoesAcertadas < 0 || questoesAcertadas > totalQuestoes) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Número de questões acertadas inválido' 
+      });
+    }
+
+    if (tempoRealizacao <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Tempo de realização deve ser maior que zero' 
+      });
+    }
+
+    if (nome.length > 255) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Nome deve ter no máximo 255 caracteres' 
+      });
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      const result = await client.query(`
+        INSERT INTO simulados (
+          user_id, nome, tipo_simulado, dia_prova, total_questoes, questoes_acertadas, 
+          data_realizacao, tempo_realizacao, nivel_dificuldade, descricao
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+      `, [
+        req.user.id, nome, tipo_simulado, dia_prova, totalQuestoes, questoesAcertadas,
+        data_realizacao, tempoRealizacao, nivel_dificuldade, descricao
+      ]);
+
+      const simulado = result.rows[0];
+
+      // Atualizar estatísticas do usuário
+      await atualizarEstatisticasUsuario(req.user.id, client);
+
+      // Registrar atividade
+      await client.query(`
+        INSERT INTO user_activities (user_id, tipo, descricao, pontuacao, materia)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [
+        req.user.id,
+        'simulado',
+        `Simulado registrado: ${nome}`,
+        simulado.porcentagem_acertos,
+        'Simulado'
+      ]);
+
+      res.status(201).json({
+        success: true,
+        message: 'Simulado registrado com sucesso!',
+        simulado: simulado
+      });
+
+    } finally {
+      client.release();
+    }
+
+  } catch (err) {
+    console.error('Erro ao criar simulado:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erro interno do servidor' 
+    });
+  }
+});
+
+// Buscar simulado específico
+app.get('/api/simulados/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'ID do simulado inválido' 
+      });
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      const result = await client.query(`
+        SELECT * FROM simulados 
+        WHERE id = $1 AND user_id = $2
+      `, [parseInt(id), req.user.id]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ 
+          success: false,
+          message: 'Simulado não encontrado' 
+        });
+      }
+
+      res.json({
+        success: true,
+        simulado: result.rows[0]
+      });
+
+    } finally {
+      client.release();
+    }
+
+  } catch (err) {
+    console.error('Erro ao buscar simulado:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erro interno do servidor' 
+    });
+  }
+});
+// Atualizar simulado
+app.put('/api/simulados/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      nome,
+      tipo_simulado,
+      dia_prova,
+      total_questoes,
+      questoes_acertadas,
+      data_realizacao,
+      tempo_realizacao,
+      nivel_dificuldade,
+      descricao
+    } = req.body;
+
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'ID do simulado inválido' 
+      });
+    }
+
+    // Validações (mesmas da criação)
+    if (!nome || !tipo_simulado || !dia_prova || !total_questoes || questoes_acertadas === undefined || !data_realizacao || !tempo_realizacao || !nivel_dificuldade) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Todos os campos obrigatórios devem ser preenchidos' 
+      });
+    }
+
+    if (!['Prova Antiga', 'SAS', 'Bernoulli', 'Poliedro', 'Hexag', 'Outro'].includes(tipo_simulado)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Tipo de simulado inválido' 
+      });
+    }
+
+    if (!['Primeiro Dia', 'Segundo Dia'].includes(dia_prova)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Dia da prova inválido' 
+      });
+    }
+
+    if (!['facil', 'medio', 'dificil'].includes(nivel_dificuldade)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Nível de dificuldade inválido' 
+      });
+    }
+
+    const totalQuestoes = parseInt(total_questoes);
+    const questoesAcertadas = parseInt(questoes_acertadas);
+    const tempoRealizacao = parseInt(tempo_realizacao);
+
+    if (totalQuestoes <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Total de questões deve ser maior que zero' 
+      });
+    }
+
+    if (questoesAcertadas < 0 || questoesAcertadas > totalQuestoes) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Número de questões acertadas inválido' 
+      });
+    }
+
+    if (tempoRealizacao <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Tempo de realização deve ser maior que zero' 
+      });
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      // Verificar se o simulado existe e pertence ao usuário
+      const existsResult = await client.query(`
+        SELECT id FROM simulados WHERE id = $1 AND user_id = $2
+      `, [parseInt(id), req.user.id]);
+
+      if (existsResult.rows.length === 0) {
+        return res.status(404).json({ 
+          success: false,
+          message: 'Simulado não encontrado' 
+        });
+      }
+
+      const result = await client.query(`
+        UPDATE simulados 
+        SET 
+          nome = $1, 
+          tipo_simulado = $2, 
+          dia_prova = $3, 
+          total_questoes = $4, 
+          questoes_acertadas = $5, 
+          data_realizacao = $6, 
+          tempo_realizacao = $7, 
+          nivel_dificuldade = $8, 
+          descricao = $9,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $10 AND user_id = $11
+        RETURNING *
+      `, [
+        nome, tipo_simulado, dia_prova, totalQuestoes, questoesAcertadas,
+        data_realizacao, tempoRealizacao, nivel_dificuldade, descricao,
+        parseInt(id), req.user.id
+      ]);
+
+      const simulado = result.rows[0];
+
+      // Atualizar estatísticas do usuário
+      await atualizarEstatisticasUsuario(req.user.id, client);
+
+      // Registrar atividade de atualização
+      await client.query(`
+        INSERT INTO user_activities (user_id, tipo, descricao, pontuacao, materia)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [
+        req.user.id,
+        'simulado_atualizado',
+        `Simulado atualizado: ${nome}`,
+        simulado.porcentagem_acertos,
+        'Simulado'
+      ]);
+
+      res.json({
+        success: true,
+        message: 'Simulado atualizado com sucesso!',
+        simulado: simulado
+      });
+
+    } finally {
+      client.release();
+    }
+
+  } catch (err) {
+    console.error('Erro ao atualizar simulado:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erro interno do servidor' 
+    });
+  }
+});
+
+// Deletar simulado
+app.delete('/api/simulados/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'ID do simulado inválido' 
+      });
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      // Verificar se o simulado existe e pertence ao usuário
+      const existsResult = await client.query(`
+        SELECT nome FROM simulados WHERE id = $1 AND user_id = $2
+      `, [parseInt(id), req.user.id]);
+
+      if (existsResult.rows.length === 0) {
+        return res.status(404).json({ 
+          success: false,
+          message: 'Simulado não encontrado' 
+        });
+      }
+
+      const simulado = existsResult.rows[0];
+
+      // Deletar o simulado
+      await client.query(`
+        DELETE FROM simulados WHERE id = $1 AND user_id = $2
+      `, [parseInt(id), req.user.id]);
+
+      // Atualizar estatísticas do usuário
+      await atualizarEstatisticasUsuario(req.user.id, client);
+
+      // Registrar atividade
+      await client.query(`
+        INSERT INTO user_activities (user_id, tipo, descricao, materia)
+        VALUES ($1, $2, $3, $4)
+      `, [
+        req.user.id,
+        'simulado_deletado',
+        `Simulado removido: ${simulado.nome}`,
+        'Simulado'
+      ]);
+
+      res.json({
+        success: true,
+        message: 'Simulado deletado com sucesso!'
+      });
+
+    } finally {
+      client.release();
+    }
+
+  } catch (err) {
+    console.error('Erro ao deletar simulado:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erro interno do servidor' 
+    });
+  }
+});
+
+// Estatísticas de simulados
+app.get('/api/simulados/estatisticas', authenticateToken, async (req, res) => {
+  try {
+    const client = await pool.connect();
+    
+    try {
+      // Estatísticas gerais
+      const statsResult = await client.query(`
+        SELECT 
+          COUNT(*) as total_simulados,
+          AVG(porcentagem_acertos) as media_acertos,
+          MAX(porcentagem_acertos) as melhor_resultado,
+          MIN(porcentagem_acertos) as pior_resultado,
+          AVG(tempo_realizacao) as tempo_medio,
+          SUM(total_questoes) as total_questoes_feitas,
+          SUM(questoes_acertadas) as total_questoes_acertadas
+        FROM simulados 
+        WHERE user_id = $1
+      `, [req.user.id]);
+
+      // Estatísticas por tipo
+      const tipoResult = await client.query(`
+        SELECT 
+          tipo_simulado,
+          COUNT(*) as quantidade,
+          AVG(porcentagem_acertos) as media_acertos
+        FROM simulados 
+        WHERE user_id = $1
+        GROUP BY tipo_simulado
+        ORDER BY tipo_simulado
+      `, [req.user.id]);
+
+      // Estatísticas por nível
+      const nivelResult = await client.query(`
+        SELECT 
+          nivel_dificuldade,
+          COUNT(*) as quantidade,
+          AVG(porcentagem_acertos) as media_acertos
+        FROM simulados 
+        WHERE user_id = $1
+        GROUP BY nivel_dificuldade
+        ORDER BY nivel_dificuldade
+      `, [req.user.id]);
+
+      // Evolução mensal (últimos 6 meses)
+      const evolucaoResult = await client.query(`
+        SELECT 
+          DATE_TRUNC('month', data_realizacao) as mes,
+          COUNT(*) as quantidade,
+          AVG(porcentagem_acertos) as media_acertos
+        FROM simulados 
+        WHERE user_id = $1 
+          AND data_realizacao >= CURRENT_DATE - INTERVAL '6 months'
+        GROUP BY DATE_TRUNC('month', data_realizacao)
+        ORDER BY mes
+      `, [req.user.id]);
+
+      // Últimos 5 simulados
+      const ultimosResult = await client.query(`
+        SELECT id, nome, porcentagem_acertos, tipo_simulado, data_realizacao
+        FROM simulados 
+        WHERE user_id = $1
+        ORDER BY data_realizacao DESC, created_at DESC
+        LIMIT 5
+      `, [req.user.id]);
+
+      const stats = statsResult.rows[0];
+
+      res.json({
+        success: true,
+        estatisticas: {
+          geral: {
+            total_simulados: parseInt(stats.total_simulados) || 0,
+            media_acertos: parseFloat(stats.media_acertos) || 0,
+            melhor_resultado: parseFloat(stats.melhor_resultado) || 0,
+            pior_resultado: parseFloat(stats.pior_resultado) || 0,
+            tempo_medio: parseInt(stats.tempo_medio) || 0,
+            total_questoes_feitas: parseInt(stats.total_questoes_feitas) || 0,
+            total_questoes_acertadas: parseInt(stats.total_questoes_acertadas) || 0
+          },
+          porTipo: tipoResult.rows.map(row => ({
+            tipo: row.tipo_simulado,
+            quantidade: parseInt(row.quantidade),
+            mediaAcertos: parseFloat(row.media_acertos)
+          })),
+          porNivel: nivelResult.rows.map(row => ({
+            nivel: row.nivel_dificuldade,
+            quantidade: parseInt(row.quantidade),
+            mediaAcertos: parseFloat(row.media_acertos)
+          })),
+          evolucaoMensal: evolucaoResult.rows.map(row => ({
+            mes: row.mes,
+            quantidade: parseInt(row.quantidade),
+            mediaAcertos: parseFloat(row.media_acertos)
+          })),
+          ultimosSimulados: ultimosResult.rows
+        }
+      });
+
+    } finally {
+      client.release();
+    }
+
+  } catch (err) {
+    console.error('Erro ao buscar estatísticas de simulados:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erro interno do servidor' 
+    });
+  }
+});
+
+/
 
 // Rota para adicionar nova atividade
 app.post('/api/user-activities', authenticateToken, async (req, res) => {
@@ -1053,6 +1759,7 @@ app.get('/MainPage.html', (req, res) => {
     `);
   }
 });
+
 // Rota para logout
 app.post('/api/logout', authenticateToken, async (req, res) => {
   try {
@@ -1087,9 +1794,9 @@ const checkAuthPage = (req, res, next) => {
   next();
 };
 
-// Rotas futuras para outras páginas (protegidas)
-app.get('/simulados.html', checkAuthPage, (req, res) => {
-  const filePath = path.join(__dirname, 'public', 'simulados.html');
+// Rotas para outras páginas (protegidas)
+app.get('/simulado.html', checkAuthPage, (req, res) => {
+  const filePath = path.join(__dirname, 'public', 'simulado.html');
   const fs = require('fs');
   
   if (fs.existsSync(filePath)) {
@@ -1156,7 +1863,7 @@ app.use('*', (req, res) => {
     res.status(404).json({ error: 'Endpoint da API não encontrado' });
   } else {
     // Para outras rotas, verificar se é uma página protegida
-    const protectedPages = ['/MainPage.html', '/simulados.html', '/redacao.html', '/materias.html', '/relatorios.html'];
+    const protectedPages = ['/MainPage.html', '/simulado.html', '/redacao.html', '/materias.html', '/relatorios.html'];
     const isProtectedPage = protectedPages.some(page => req.originalUrl.includes(page.replace('.html', '')));
     
     if (isProtectedPage) {
@@ -1208,7 +1915,10 @@ app.listen(port, () => {
     'menu.js',
     'redacao.html',
     'redacao.css',
-    'redacao.js'
+    'redacao.js',
+    'simulado.html',
+    'simulado.css',
+    'simulado.js'
   ];
   
   console.log('\n📋 Verificando arquivos:');

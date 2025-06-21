@@ -39,6 +39,30 @@ CREATE TABLE IF NOT EXISTS user_activities (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Criar tabela de simulados
+CREATE TABLE IF NOT EXISTS simulados (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+    nome VARCHAR(255) NOT NULL,
+    tipo_simulado VARCHAR(50) NOT NULL CHECK (tipo_simulado IN ('Prova Antiga', 'SAS', 'Bernoulli', 'Poliedro', 'Hexag', 'Outro')),
+    dia_prova VARCHAR(20) NOT NULL CHECK (dia_prova IN ('Primeiro Dia', 'Segundo Dia')),
+    total_questoes INTEGER NOT NULL CHECK (total_questoes > 0),
+    questoes_acertadas INTEGER NOT NULL CHECK (questoes_acertadas >= 0),
+    porcentagem_acertos DECIMAL(5,2) GENERATED ALWAYS AS (ROUND((questoes_acertadas::DECIMAL / total_questoes::DECIMAL) * 100, 2)) STORED,
+    data_realizacao DATE NOT NULL,
+    tempo_realizacao INTEGER NOT NULL, -- em minutos
+    nivel_dificuldade VARCHAR(20) NOT NULL CHECK (nivel_dificuldade IN ('facil', 'medio', 'dificil')),
+    descricao TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Índices para simulados
+CREATE INDEX IF NOT EXISTS idx_simulados_user_id ON simulados(user_id);
+CREATE INDEX IF NOT EXISTS idx_simulados_data ON simulados(data_realizacao);
+CREATE INDEX IF NOT EXISTS idx_simulados_tipo ON simulados(tipo_simulado);
+CREATE INDEX IF NOT EXISTS idx_simulados_porcentagem ON simulados(porcentagem_acertos);
+
 -- Criar tabela de redações
 CREATE TABLE IF NOT EXISTS redacoes (
     id SERIAL PRIMARY KEY,
@@ -70,6 +94,9 @@ BEGIN
     RETURN NEW;
 END;
 $$ language 'plpgsql';
+
+CREATE TRIGGER update_simulados_updated_at BEFORE UPDATE ON simulados
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_redacoes_updated_at BEFORE UPDATE ON redacoes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

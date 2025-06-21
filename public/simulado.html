@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulados - CicloVest</title>
+    <link rel="stylesheet" href="menu.css">
+    <link rel="stylesheet" href="simulado.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-clipboard-list"></i> Gerenciar Simulados</h1>
+            <button class="btn btn-primary" id="btnNovoSimulado">
+                <i class="fas fa-plus"></i> Novo Simulado
+            </button>
+        </header>
+
+        <!-- Estatísticas -->
+        <section class="stats-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="totalSimulados">0</h3>
+                        <p>Total de Simulados</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="mediaAcertos">0%</h3>
+                        <p>Média de Acertos</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="melhorResultado">0%</h3>
+                        <p>Melhor Resultado</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="tempoMedio">0min</h3>
+                        <p>Tempo Médio</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filtros -->
+        <section class="filters-section">
+            <div class="filters">
+                <select id="filtroTipo" class="filter-select">
+                    <option value="">Todos os Tipos</option>
+                    <option value="Prova Antiga">Prova Antiga</option>
+                    <option value="SAS">SAS</option>
+                    <option value="Bernoulli">Bernoulli</option>
+                    <option value="Poliedro">Poliedro</option>
+                    <option value="Hexag">Hexag</option>
+                    <option value="Outro">Outro</option>
+                </select>
+                <select id="filtroDia" class="filter-select">
+                    <option value="">Todos os Dias</option>
+                    <option value="Primeiro Dia">Primeiro Dia</option>
+                    <option value="Segundo Dia">Segundo Dia</option>
+                </select>
+                <select id="filtroNivel" class="filter-select">
+                    <option value="">Todos os Níveis</option>
+                    <option value="facil">Fácil</option>
+                    <option value="medio">Médio</option>
+                    <option value="dificil">Difícil</option>
+                </select>
+                <input type="text" id="filtroNome" placeholder="Buscar por nome..." class="filter-input">
+            </div>
+        </section>
+
+        <!-- Lista de Simulados -->
+        <section class="simulados-section">
+            <div class="simulados-grid" id="simuladosGrid">
+                <!-- Simulados serão carregados aqui -->
+            </div>
+        </section>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Carregando...</p>
+        </div>
+
+        <!-- Mensagem vazia -->
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <i class="fas fa-clipboard-list"></i>
+            <h3>Nenhum simulado encontrado</h3>
+            <p>Comece criando seu primeiro simulado!</p>
+            <button class="btn btn-primary" onclick="abrirModalSimulado()">
+                <i class="fas fa-plus"></i> Criar Simulado
+            </button>
+        </div>
+    </section>
+
+    <!-- Modal para Criar/Editar Simulado -->
+    <div class="modal" id="modalSimulado">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Novo Simulado</h2>
+                <button class="modal-close" onclick="fecharModalSimulado()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="formSimulado" class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="nome">Nome do Simulado *</label>
+                        <input type="text" id="nome" name="nome" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="tipo_simulado">Tipo de Simulado *</label>
+                        <select id="tipo_simulado" name="tipo_simulado" required>
+                            <option value="">Selecione...</option>
+                            <option value="Prova Antiga">Prova Antiga</option>
+                            <option value="SAS">SAS</option>
+                            <option value="Bernoulli">Bernoulli</option>
+                            <option value="Poliedro">Poliedro</option>
+                            <option value="Hexag">Hexag</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dia_prova">Dia da Prova *</label>
+                        <select id="dia_prova" name="dia_prova" required>
+                            <option value="">Selecione...</option>
+                            <option value="Primeiro Dia">Primeiro Dia</option>
+                            <option value="Segundo Dia">Segundo Dia</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="data_realizacao">Data de Realização *</label>
+                        <input type="date" id="data_realizacao" name="data_realizacao" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="total_questoes">Total de Questões *</label>
+                        <input type="number" id="total_questoes" name="total_questoes" min="1" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="questoes_acertadas">Questões Acertadas *</label>
+                        <input type="number" id="questoes_acertadas" name="questoes_acertadas" min="0" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tempo_realizacao">Tempo (minutos) *</label>
+                        <input type="number" id="tempo_realizacao" name="tempo_realizacao" min="1" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nivel_dificuldade">Nível de Dificuldade *</label>
+                        <select id="nivel_dificuldade" name="nivel_dificuldade" required>
+                            <option value="">Selecione...</option>
+                            <option value="facil">Fácil</option>
+                            <option value="medio">Médio</option>
+                            <option value="dificil">Difícil</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="descricao">Descrição</label>
+                    <textarea id="descricao" name="descricao" rows="3" placeholder="Observações sobre o simulado..."></textarea>
+                </div>
+
+                <div class="porcentagem-preview">
+                    <span>Porcentagem de Acertos: <strong id="porcentagemPreview">0%</strong></span>
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="fecharModalSimulado()">
+                    Cancelar
+                </button>
+                <button type="submit" form="formSimulado" class="btn btn-primary" id="btnSalvarSimulado">
+                    <i class="fas fa-save"></i> Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div class="modal" id="modalConfirmacao">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Confirmar Exclusão</h2>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir este simulado?</p>
+                <p><strong>Esta ação não pode ser desfeita.</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="fecharModalConfirmacao()">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarExclusao">
+                    <i class="fas fa-trash"></i> Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="simulado.js"></script>
+    <script src="menu.js"></script>
+
+</body>
+</html>
