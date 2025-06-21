@@ -13,18 +13,15 @@ class SimuladoManager {
     }
 
     bindEvents() {
-        // Botão novo simulado
         document.getElementById('btnNovoSimulado').addEventListener('click', () => {
             this.abrirModalSimulado();
         });
 
-        // Form simulado
         document.getElementById('formSimulado').addEventListener('submit', (e) => {
             e.preventDefault();
             this.salvarSimulado();
         });
 
-        // Filtros
         document.getElementById('filtroTipo').addEventListener('change', () => {
             this.aplicarFiltros();
         });
@@ -41,7 +38,6 @@ class SimuladoManager {
             this.aplicarFiltros();
         });
 
-        // Cálculo automático da porcentagem
         document.getElementById('total_questoes').addEventListener('input', () => {
             this.calcularPorcentagem();
         });
@@ -50,12 +46,10 @@ class SimuladoManager {
             this.calcularPorcentagem();
         });
 
-        // Modal confirmação
         document.getElementById('btnConfirmarExclusao').addEventListener('click', () => {
             this.confirmarExclusao();
         });
 
-        // Fechar modais ao clicar fora
         document.getElementById('modalSimulado').addEventListener('click', (e) => {
             if (e.target.id === 'modalSimulado') {
                 this.fecharModalSimulado();
@@ -72,16 +66,28 @@ class SimuladoManager {
     async carregarSimulados() {
         try {
             this.mostrarLoading(true);
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                throw new Error('Token não encontrado');
+            }
+
             const response = await fetch('/api/simulados', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
             });
 
             console.log('Response status:', response.status);
-            console.log('Response ok:', response.ok);
 
             if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/';
+                    return;
+                }
+                
                 const errorText = await response.text();
                 console.error('Erro na resposta:', errorText);
                 throw new Error(`Erro ${response.status}: ${errorText}`);
@@ -90,11 +96,10 @@ class SimuladoManager {
             const data = await response.json();
             console.log('Dados recebidos:', data);
             
-            // Verificar se a resposta tem a estrutura esperada
             if (data.success) {
                 this.simulados = data.simulados || [];
             } else {
-                this.simulados = data || []; // Fallback para compatibilidade
+                this.simulados = data || [];
             }
             
             this.renderizarSimulados();
@@ -110,13 +115,26 @@ class SimuladoManager {
 
     async carregarEstatisticas() {
         try {
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                throw new Error('Token não encontrado');
+            }
+
             const response = await fetch('/api/simulados/estatisticas', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
             });
 
             if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/';
+                    return;
+                }
+                
                 console.warn('Erro ao carregar estatísticas, usando valores padrão');
                 this.atualizarEstatisticas({
                     geral: {
@@ -134,10 +152,7 @@ class SimuladoManager {
             
             if (data.success && data.estatisticas) {
                 this.atualizarEstatisticas(data.estatisticas);
-            } else if (data.estatisticas) {
-                this.atualizarEstatisticas(data.estatisticas);
             } else {
-                // Usar valores padrão se não houver estatísticas
                 this.atualizarEstatisticas({
                     geral: {
                         total_simulados: 0,
@@ -149,7 +164,6 @@ class SimuladoManager {
             }
         } catch (error) {
             console.error('Erro ao carregar estatísticas:', error);
-            // Usar valores padrão em caso de erro
             this.atualizarEstatisticas({
                 geral: {
                     total_simulados: 0,
@@ -284,7 +298,13 @@ class SimuladoManager {
         document.getElementById('dia_prova').value = simulado.dia_prova || '';
         document.getElementById('total_questoes').value = simulado.total_questoes || '';
         document.getElementById('questoes_acertadas').value = simulado.questoes_acertadas || '';
-        document.getElementById('data_realizacao').value = simulado.data_realizacao || '';
+        
+               if (simulado.data_realizacao) {
+            const data = new Date(simulado.data_realizacao);
+            const dataFormatada = data.toISOString().split('T')[0];
+            document.getElementById('data_realizacao').value = dataFormatada;
+        }
+        
         document.getElementById('tempo_realizacao').value = simulado.tempo_realizacao || '';
         document.getElementById('nivel_dificuldade').value = simulado.nivel_dificuldade || '';
         document.getElementById('descricao').value = simulado.descricao || '';
@@ -311,9 +331,42 @@ class SimuladoManager {
 
             console.log('Dados do formulário:', data);
 
-            // Validações
-            if (parseInt(data.questoes_acertadas) > parseInt(data.total_questoes)) {
+            if (!data.nome || !data.tipo_simulado || !data.dia_prova || 
+                !data.total_questoes || !data.questoes_acertadas || 
+                !data.data_realizacao || !data.tempo_realizacao || 
+                !data.nivel_dificuldade) {
+                this.mostrarMensagem('Todos os campos obrigatórios devem ser preenchidos', 'error');
+                return;
+            }
+
+            const totalQuestoes = parseInt(data.total_questoes);
+            const questoesAcertadas = parseInt(data.questoes_acertadas);
+            const tempoRealizacao = parseInt(data.tempo_realizacao);
+
+            if (isNaN(totalQuestoes) || totalQuestoes <= 0) {
+                this.mostrarMensagem('Total de questões deve ser um número maior que zero', 'error');
+                return;
+            }
+
+            if (isNaN(questoesAcertadas) || questoesAcertadas < 0) {
+                this.mostrarMensagem('Questões acertadas deve ser um número maior ou igual a zero', 'error');
+                return;
+            }
+
+            if (questoesAcertadas > totalQuestoes) {
                 this.mostrarMensagem('Número de questões acertadas não pode ser maior que o total', 'error');
+                return;
+            }
+
+            if (isNaN(tempoRealizacao) || tempoRealizacao <= 0) {
+                this.mostrarMensagem('Tempo de realização deve ser um número maior que zero', 'error');
+                return;
+            }
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                this.mostrarMensagem('Token não encontrado. Faça login novamente.', 'error');
+                window.location.href = '/';
                 return;
             }
 
@@ -324,12 +377,13 @@ class SimuladoManager {
             const method = this.simuladoEditando ? 'PUT' : 'POST';
 
             console.log('Fazendo requisição:', method, url);
+            console.log('Dados enviados:', data);
 
             const response = await fetch(url, {
                 method,
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(data)
             });
@@ -338,6 +392,12 @@ class SimuladoManager {
             console.log('Response ok:', response.ok);
 
             if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/';
+                    return;
+                }
+
                 const errorText = await response.text();
                 console.error('Erro na resposta:', errorText);
                 
@@ -375,6 +435,7 @@ class SimuladoManager {
             this.mostrarMensagem('Simulado não encontrado', 'error');
         }
     }
+
     excluirSimulado(id) {
         this.simuladoParaExcluir = id;
         document.getElementById('modalConfirmacao').classList.add('active');
@@ -389,16 +450,30 @@ class SimuladoManager {
         if (!this.simuladoParaExcluir) return;
 
         try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                this.mostrarMensagem('Token não encontrado. Faça login novamente.', 'error');
+                window.location.href = '/';
+                return;
+            }
+
             const response = await fetch(`/api/simulados/${this.simuladoParaExcluir}`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
             });
 
             console.log('Delete response status:', response.status);
 
             if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/';
+                    return;
+                }
+
                 const errorText = await response.text();
                 console.error('Erro ao excluir:', errorText);
                 
@@ -442,11 +517,9 @@ class SimuladoManager {
     }
 
     mostrarMensagem(mensagem, tipo = 'info') {
-        // Remover mensagens existentes
         const mensagensExistentes = document.querySelectorAll('.toast-message');
         mensagensExistentes.forEach(msg => msg.remove());
 
-        // Criar nova mensagem
         const toast = document.createElement('div');
         toast.className = `toast-message toast-${tipo}`;
         toast.innerHTML = `
@@ -459,7 +532,6 @@ class SimuladoManager {
             </div>
         `;
 
-        // Adicionar estilos se não existirem
         if (!document.getElementById('toast-styles')) {
             const styles = document.createElement('style');
             styles.id = 'toast-styles';
@@ -590,7 +662,6 @@ class SimuladoManager {
     }
 }
 
-// Funções globais para os botões
 window.abrirModalSimulado = function() {
     if (window.simuladoManager) {
         window.simuladoManager.abrirModalSimulado();
@@ -609,7 +680,6 @@ window.fecharModalConfirmacao = function() {
     }
 };
 
-// Verificar autenticação antes de inicializar
 function verificarAutenticacao() {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -620,7 +690,6 @@ function verificarAutenticacao() {
     return true;
 }
 
-// Inicializar quando o DOM estiver carregado
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM carregado, verificando autenticação...');
     
@@ -630,7 +699,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Verificar se o usuário ainda está autenticado periodicamente
 setInterval(() => {
     const token = localStorage.getItem('token');
     if (!token && window.location.pathname === '/simulado.html') {
@@ -639,5 +707,4 @@ setInterval(() => {
     }
 }, 30000); // Verificar a cada 30 segundos
 
-// Export para uso global
 window.SimuladoManager = SimuladoManager;
