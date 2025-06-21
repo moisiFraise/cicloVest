@@ -24,7 +24,7 @@ class MenuComponent {
             <li><a href="/MainPage.html" class="menu-link" data-page="dashboard">Dashboard</a></li>
             <li><a href="/simulado.html" class="menu-link" data-page="simulados">Simulados</a></li>
             <li><a href="/redacao.html" class="menu-link" data-page="redacao">Redação</a></li>
-            <li><a href="/materias.html" class="menu-link" data-page="materias">Matérias</a></li>
+            <li><a href="/estudo.html" class="menu-link" data-page="estudos">Registrar Estudos</a></li>
             <li><a href="/relatorios.html" class="menu-link" data-page="relatorios">Relatórios</a></li>
           </ul>
           
