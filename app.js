@@ -26,6 +26,7 @@ const UserController = require('./controllers/userController');
 const RedacaoController = require('./controllers/RedacaoController');
 const simuladoController = require('./controllers/simuladoController');
 const estudoController = require('./controllers/estudoController');
+const questaoController = require('./controllers/questaoController');
 
 // Importa middleware de autenticação
 const authenticateToken = require('./middleware/auth');
@@ -61,7 +62,13 @@ app.get('/api', (req, res) => {
       'PUT /api/estudos/:id (protegida)',
       'DELETE /api/estudos/:id (protegida)',
       'GET /api/estudos/date/:date (protegida)',
-      'GET /api/estudos/materia/:materia (protegida)'
+      'GET /api/estudos/materia/:materia (protegida)',
+      'GET /api/questoes (protegida)',
+      'POST /api/questoes (protegida)',
+      'GET /api/questoes/estatisticas (protegida)',
+      'GET /api/questoes/:id (protegida)',
+      'PUT /api/questoes/:id (protegida)',
+      'DELETE /api/questoes/:id (protegida)'
     ]
   });
 });
@@ -263,6 +270,66 @@ app.post('/api/setup-db', async (req, res) => {
         FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
       `);
 
+     await client.query(`
+  DROP TABLE IF EXISTS questoes CASCADE
+`);
+
+await client.query(`
+  CREATE TABLE IF NOT EXISTS questoes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+    materia VARCHAR(100) NOT NULL CHECK (materia IN (
+      'Linguagens', 'História', 'Geografia', 'Filosofia', 'Sociologia', 
+      'Redação', 'Matemática', 'Física', 'Química', 'Biologia', 
+      'Inglês', 'Espanhol', 'Gramática', 'Outra'
+    )),
+    total_questoes INTEGER NOT NULL CHECK (total_questoes > 0),
+    questoes_acertadas INTEGER NOT NULL CHECK (questoes_acertadas >= 0),
+    questoes_erradas INTEGER GENERATED ALWAYS AS (total_questoes - questoes_acertadas) STORED,
+    porcentagem_acertos DECIMAL(5,2) GENERATED ALWAYS AS (ROUND((questoes_acertadas::DECIMAL / total_questoes::DECIMAL) * 100, 2)) STORED,
+    data_realizacao DATE NOT NULL DEFAULT CURRENT_DATE,
+    tempo_total_minutos INTEGER DEFAULT NULL CHECK (tempo_total_minutos IS NULL OR tempo_total_minutos > 0),
+    tempo_medio_por_questao DECIMAL(8,2) DEFAULT NULL,
+    observacoes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Constraint para garantir que questões acertadas não seja maior que total
+    CONSTRAINT check_acertos_validos CHECK (questoes_acertadas <= total_questoes)
+  )
+`);
+
+// Índices para questões
+await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_questoes_user_id ON questoes(user_id)
+`);
+
+await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_questoes_data ON questoes(data_realizacao)
+`);
+
+await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_questoes_materia ON questoes(materia)
+`);
+
+await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_questoes_porcentagem ON questoes(porcentagem_acertos)
+`);
+
+await client.query(`
+  CREATE INDEX IF NOT EXISTS idx_questoes_created_at ON questoes(created_at)
+`);
+
+// Trigger para atualizar updated_at
+await client.query(`
+  DROP TRIGGER IF EXISTS update_questoes_updated_at ON questoes
+`);
+
+await client.query(`
+  CREATE TRIGGER update_questoes_updated_at BEFORE UPDATE ON questoes
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+`);
+
       res.json({ message: 'Tabelas criadas com sucesso!' });
     } finally {
       client.release();
@@ -447,6 +514,14 @@ app.delete('/api/estudos/:id', authenticateToken, estudoController.delete);
 app.get('/api/estudos/date/:date', authenticateToken, estudoController.getByDate);
 app.get('/api/estudos/materia/:materia', authenticateToken, estudoController.getByMateria);
 
+// Rotas de questões
+app.post('/api/questoes', authenticateToken, questaoController.criarQuestao);
+app.get('/api/questoes', authenticateToken, questaoController.listarQuestoes);
+app.get('/api/questoes/estatisticas', authenticateToken, questaoController.obterEstatisticas);
+app.get('/api/questoes/:id', authenticateToken, questaoController.obterQuestao);
+app.put('/api/questoes/:id', authenticateToken, questaoController.atualizarQuestao);
+app.delete('/api/questoes/:id', authenticateToken, questaoController.deletarQuestao);
+
 // ROTAS DE ATIVIDADES
 app.post('/api/user-activities', authenticateToken, async (req, res) => {
   try {
@@ -583,6 +658,25 @@ app.get('/redacao.html', (req, res) => {
     res.status(404).send(`
       <h1>cicloVest - Página em Desenvolvimento</h1>
       <p>A página de Redação está sendo desenvolvida.</p>
+      <p>Arquivo não encontrado: ${filePath}</p>
+      <a href="/MainPage.html">Voltar ao Dashboard</a>
+    `);
+  }
+});
+
+app.get('/questao.html', (req, res) => {
+  console.log('Acessando questao.html');
+  const filePath = path.join(__dirname, 'public', 'questao.html');
+  const fs = require('fs');
+  
+  if (fs.existsSync(filePath)) {
+    console.log('Arquivo questao.html encontrado, servindo arquivo');
+    res.sendFile(filePath);
+  } else {
+    console.log('Arquivo questao.html NÃO encontrado');
+    res.status(404).send(`
+      <h1>cicloVest - Página em Desenvolvimento</h1>
+      <p>A página de Questões está sendo desenvolvida.</p>
       <p>Arquivo não encontrado: ${filePath}</p>
       <a href="/MainPage.html">Voltar ao Dashboard</a>
     `);

@@ -24,7 +24,9 @@ class MenuComponent {
             <li><a href="/MainPage.html" class="menu-link" data-page="dashboard">Dashboard</a></li>
             <li><a href="/simulado.html" class="menu-link" data-page="simulados">Simulados</a></li>
             <li><a href="/redacao.html" class="menu-link" data-page="redacao">Redação</a></li>
+            <li><a href="/questao.html" class="menu-link" data-page="questoes">Questões</a></li>
             <li><a href="/estudo.html" class="menu-link" data-page="estudos">Registrar Estudos</a></li>
+            <li><a href="/calendario.html" class="menu-link" data-page="calendario">Calendário</a></li>
             <li><a href="/relatorios.html" class="menu-link" data-page="relatorios">Relatórios</a></li>
           </ul>
           
@@ -50,7 +52,9 @@ class MenuComponent {
             <a href="/MainPage.html" class="menu-link" data-page="dashboard">Dashboard</a>
             <a href="/simulado.html" class="menu-link" data-page="simulados">Simulados</a>
             <a href="/redacao.html" class="menu-link" data-page="redacao">Redação</a>
+            <a href="/questao.html" class="menu-link" data-page="questoes">Questões</a>
             <a href="/estudo.html" class="menu-link" data-page="estudos">Registrar Estudos</a>
+            <a href="/calendario.html" class="menu-link" data-page="calendario">Calendário</a>
             <a href="/relatorios.html" class="menu-link" data-page="relatorios">Relatórios</a>
           </div>
           
@@ -264,6 +268,7 @@ class MenuComponent {
         'dashboard': ['/MainPage.html', '/'],
         'simulados': ['/simulado.html'],
         'redacao': ['/redacao.html'],
+        'questoes': ['/questao.html'],
         'estudos': ['/estudo.html'],
         'relatorios': ['/relatorios.html']
       };
@@ -307,6 +312,15 @@ class MenuComponent {
       redacaoLinks.forEach(link => {
         link.classList.add('active');
         console.log('Redação ativo para:', currentPage);
+      });
+    }
+
+    // Set questoes as active for questao.html
+    if (currentPage === '/questao.html') {
+      const questoesLinks = document.querySelectorAll('[data-page="questoes"]');
+      questoesLinks.forEach(link => {
+        link.classList.add('active');
+        console.log('Questões ativo para:', currentPage);
       });
     }
 

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="cicloVest">
+    <meta name="theme-color" content="#cba6f7">
+    <title>Questões - cicloVest</title>
+    <link rel="stylesheet" href="menu.css">
+    <link rel="stylesheet" href="questao.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="main-content">
+        <div class="questao-container">
+            <!-- Header -->
+            <div class="questao-header">
+                <h1><i class="fas fa-question-circle"></i> Registro de Questões</h1>
+                <p>Registre suas sessões de questões e acompanhe seu progresso acadêmico</p>
+            </div>
+
+            <!-- Estatísticas Rápidas -->
+            <div class="stats-cards">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-list-ol"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="total-questoes">0</h3>
+                        <p>Total de Questões</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="total-acertos">0</h3>
+                        <p>Total de Acertos</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="media-acertos">0%</h3>
+                        <p>Média de Acertos</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="tempo-medio">0min</h3>
+                        <p>Tempo Médio/Questão</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulário de Registro -->
+            <div class="questao-form-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-plus-circle"></i> Registrar Nova Sessão</h2>
+                    <button class="btn-toggle-form" id="toggle-form" type="button">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+
+                <form class="questao-form" id="questao-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="materia">
+                                <i class="fas fa-book"></i> Matéria *
+                            </label>
+                            <select id="materia" name="materia" required>
+                                <option value="">Selecione a matéria</option>
+                                <option value="Linguagens">Linguagens</option>
+                                <option value="História">História</option>
+                                <option value="Geografia">Geografia</option>
+                                <option value="Filosofia">Filosofia</option>
+                                <option value="Sociologia">Sociologia</option>
+                                <option value="Redação">Redação</option>
+                                <option value="Matemática">Matemática</option>
+                                <option value="Física">Física</option>
+                                <option value="Química">Química</option>
+                                <option value="Biologia">Biologia</option>
+                                <option value="Inglês">Inglês</option>
+                                <option value="Espanhol">Espanhol</option>
+                                <option value="Gramática">Gramática</option>
+                                <option value="Outra">Outra</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="data_realizacao">
+                                <i class="fas fa-calendar"></i> Data da Sessão *
+                            </label>
+                            <input type="date" id="data_realizacao" name="data_realizacao" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="total_questoes">
+                                <i class="fas fa-list-ol"></i> Total de Questões *
+                            </label>
+                            <input type="number" id="total_questoes" name="total_questoes" min="1" max="1000" required placeholder="Ex: 20">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="questoes_acertadas">
+                                <i class="fas fa-check"></i> Questões Acertadas *
+                            </label>
+                            <input type="number" id="questoes_acertadas" name="questoes_acertadas" min="0" required placeholder="Ex: 15">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="incluir_tempo" name="incluir_tempo">
+                            <label for="incluir_tempo">
+                                <i class="fas fa-stopwatch"></i> Deseja registrar o tempo que levou para resolver todas as questões?
+                            </label>
+                        </div>
+                    </div>
+                                        <div class="form-group tempo-group" id="tempo-group" style="display: none;">
+                        <label for="tempo_total_minutos">
+                            <i class="fas fa-clock"></i> Tempo Total (minutos) *
+                        </label>
+                        <input type="number" id="tempo_total_minutos" name="tempo_total_minutos" min="1" max="600" placeholder="Ex: 45">
+                        <div class="tempo-info" id="tempo-info" style="display: none;">
+                            <small><i class="fas fa-info-circle"></i> Tempo médio por questão: <span id="tempo-medio-calc">0</span> minutos</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="observacoes">
+                            <i class="fas fa-comment"></i> Observações (opcional)
+                        </label>
+                        <textarea id="observacoes" name="observacoes" rows="3" placeholder="Adicione observações sobre esta sessão de questões..."></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="btn-cancelar">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn-primary" id="btn-salvar">
+                            <i class="fas fa-save"></i> Salvar Sessão
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Filtros -->
+            <div class="questao-filters">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label for="filter-materia">
+                            <i class="fas fa-filter"></i> Filtrar por Matéria
+                        </label>
+                        <select id="filter-materia">
+                            <option value="">Todas as matérias</option>
+                            <option value="Linguagens">Linguagens</option>
+                            <option value="História">História</option>
+                            <option value="Geografia">Geografia</option>
+                            <option value="Filosofia">Filosofia</option>
+                            <option value="Sociologia">Sociologia</option>
+                            <option value="Redação">Redação</option>
+                            <option value="Matemática">Matemática</option>
+                            <option value="Física">Física</option>
+                            <option value="Química">Química</option>
+                            <option value="Biologia">Biologia</option>
+                            <option value="Inglês">Inglês</option>
+                            <option value="Espanhol">Espanhol</option>
+                            <option value="Gramática">Gramática</option>
+                            <option value="Outra">Outra</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filter-data-inicio">
+                            <i class="fas fa-calendar-alt"></i> Data Início
+                        </label>
+                        <input type="date" id="filter-data-inicio">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="filter-data-fim">
+                            <i class="fas fa-calendar-alt"></i> Data Fim
+                        </label>
+                        <input type="date" id="filter-data-fim">
+                    </div>
+
+                    <div class="filter-actions">
+                        <button class="btn-filter" id="btn-aplicar-filtros" type="button">
+                            <i class="fas fa-search"></i> Aplicar Filtros
+                        </button>
+                        <button class="btn-clear" id="btn-limpar-filtros" type="button">
+                            <i class="fas fa-eraser"></i> Limpar Filtros
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Questões -->
+            <div class="questao-list-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-history"></i> Histórico de Sessões</h2>
+                    <div class="list-actions">
+                        <button class="btn-refresh" id="btn-refresh" type="button" title="Atualizar lista">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="questao-list" id="questao-list">
+                    <!-- Lista será carregada dinamicamente -->
+                </div>
+
+                <div class="pagination" id="pagination">
+                    <!-- Paginação será carregada dinamicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading" id="loading" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Carregando dados...</p>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div class="modal" id="confirm-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Confirmar Ação</h3>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message">Tem certeza que deseja realizar esta ação?</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="btn-cancel-modal" type="button">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+                <button class="btn-danger" id="btn-confirm-modal" type="button">
+                    <i class="fas fa-check"></i> Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="menu.js"></script>
+    <script src="questao.js"></script>
+</body>
+</html>

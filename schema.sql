@@ -136,3 +136,40 @@ CREATE TRIGGER update_user_stats_updated_at BEFORE UPDATE ON user_stats
 
 CREATE TRIGGER update_usuarios_updated_at BEFORE UPDATE ON usuarios
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS questoes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+    materia VARCHAR(100) NOT NULL CHECK (materia IN (
+        'Linguagens', 'História', 'Geografia', 'Filosofia', 'Sociologia', 
+        'Redação', 'Matemática', 'Física', 'Química', 'Biologia', 
+        'Inglês', 'Espanhol', 'Gramática', 'Outra'
+    )),
+    total_questoes INTEGER NOT NULL CHECK (total_questoes > 0),
+    questoes_acertadas INTEGER NOT NULL CHECK (questoes_acertadas >= 0),
+    questoes_erradas INTEGER GENERATED ALWAYS AS (total_questoes - questoes_acertadas) STORED,
+    porcentagem_acertos DECIMAL(5,2) GENERATED ALWAYS AS (ROUND((questoes_acertadas::DECIMAL / total_questoes::DECIMAL) * 100, 2)) STORED,
+    tempo_total_minutos INTEGER DEFAULT NULL,
+    tempo_medio_por_questao DECIMAL(5,2) GENERATED ALWAYS AS (
+        CASE 
+            WHEN tempo_total_minutos IS NOT NULL AND total_questoes > 0 
+            THEN ROUND(tempo_total_minutos::DECIMAL / total_questoes::DECIMAL, 2)
+            ELSE NULL 
+        END
+    ) STORED,
+    data_realizacao DATE NOT NULL DEFAULT CURRENT_DATE,
+    observacoes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT questoes_acertadas_valida CHECK (questoes_acertadas <= total_questoes)
+);
+
+-- Índices para questões
+CREATE INDEX IF NOT EXISTS idx_questoes_user_id ON questoes(user_id);
+CREATE INDEX IF NOT EXISTS idx_questoes_data ON questoes(data_realizacao);
+CREATE INDEX IF NOT EXISTS idx_questoes_materia ON questoes(materia);
+CREATE INDEX IF NOT EXISTS idx_questoes_porcentagem ON questoes(porcentagem_acertos);
+
+-- Trigger para atualizar updated_at
+CREATE TRIGGER update_questoes_updated_at BEFORE UPDATE ON questoes
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
