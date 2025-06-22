@@ -4,6 +4,8 @@ class QuestaoManager {
         this.itemsPerPage = 10;
         this.filters = {};
         this.editingId = null;
+        this.currentView = 'grid';
+        this.currentOrder = 'created_at-DESC';
         this.charts = {
             bestSubject: null,
             worstSubject: null,
@@ -25,10 +27,14 @@ class QuestaoManager {
     }
 
     bindEvents() {
+        // Header buttons
+        document.getElementById('nova-questao-btn').addEventListener('click', () => this.showForm());
+        document.getElementById('estatisticas-btn').addEventListener('click', () => this.showStatistics());
+
         // Form events
         document.getElementById('questao-form').addEventListener('submit', (e) => this.handleSubmit(e));
-        document.getElementById('btn-cancelar').addEventListener('click', () => this.resetForm());
-        document.getElementById('toggle-form').addEventListener('click', () => this.toggleForm());
+        document.getElementById('cancel-btn').addEventListener('click', () => this.hideForm());
+        document.getElementById('close-form-btn').addEventListener('click', () => this.hideForm());
 
         // Checkbox para tempo
         document.getElementById('incluir_tempo').addEventListener('change', (e) => this.toggleTempoField(e));
@@ -41,18 +47,56 @@ class QuestaoManager {
         document.getElementById('questoes_acertadas').addEventListener('input', () => this.validateAcertos());
         document.getElementById('total_questoes').addEventListener('input', () => this.validateAcertos());
 
-        // Filter events
-        document.getElementById('btn-aplicar-filtros').addEventListener('click', () => this.applyFilters());
-        document.getElementById('btn-limpar-filtros').addEventListener('click', () => this.clearFilters());
-        document.getElementById('btn-refresh').addEventListener('click', () => this.refreshData());
-
         // Chart events
         document.getElementById('chart-filter-materia').addEventListener('change', () => this.loadCharts());
         document.getElementById('btn-refresh-charts').addEventListener('click', () => this.refreshCharts());
 
-        // Modal events
-        document.getElementById('btn-cancel-modal').addEventListener('click', () => this.hideModal());
-        document.getElementById('btn-confirm-modal').addEventListener('click', () => this.confirmAction());
+        // View toggle
+        document.getElementById('grid-view-btn').addEventListener('click', () => this.setView('grid'));
+        document.getElementById('list-view-btn').addEventListener('click', () => this.setView('list'));
+
+        // Order filter
+        document.getElementById('order-filter').addEventListener('change', (e) => this.setOrder(e.target.value));
+
+        // Pagination
+        document.getElementById('prev-page').addEventListener('click', () => this.previousPage());
+        document.getElementById('next-page').addEventListener('click', () => this.nextPage());
+
+        // Statistics modal
+        document.getElementById('close-stats-btn').addEventListener('click', () => this.hideStatistics());
+
+        // Delete modal
+        document.getElementById('close-delete-btn').addEventListener('click', () => this.hideDeleteModal());
+        document.getElementById('cancel-delete-btn').addEventListener('click', () => this.hideDeleteModal());
+        document.getElementById('confirm-delete-btn').addEventListener('click', () => this.confirmDelete());
+
+        // Character counters
+        this.setupCharacterCounters();
+    }
+
+    setupCharacterCounters() {
+        const inputs = [
+            { id: 'tema', max: 500 },
+            { id: 'observacoes', max: 1000 }
+        ];
+
+        inputs.forEach(input => {
+            const element = document.getElementById(input.id);
+            const counter = element.parentElement.querySelector('.char-counter');
+            
+            element.addEventListener('input', () => {
+                const length = element.value.length;
+                counter.textContent = `${length}/${input.max} caracteres`;
+                
+                if (length > input.max * 0.9) {
+                    counter.style.color = 'var(--ctp-red)';
+                } else if (length > input.max * 0.7) {
+                    counter.style.color = 'var(--ctp-yellow)';
+                } else {
+                    counter.style.color = 'var(--ctp-subtext1)';
+                }
+            });
+        });
     }
 
     setDefaultDate() {
@@ -60,14 +104,23 @@ class QuestaoManager {
         document.getElementById('data_realizacao').value = today;
     }
 
-    toggleForm() {
-        const form = document.querySelector('.questao-form');
-        const toggleBtn = document.getElementById('toggle-form');
-        
-        form.classList.toggle('collapsed');
-        toggleBtn.classList.toggle('collapsed');
+    showForm(questao = null) {
+        if (questao) {
+            this.fillFormForEdit(questao);
+        } else {
+            this.resetForm();
+            document.getElementById('form-title').textContent = 'Nova Sessão de Questões';
+            document.getElementById('submit-text').textContent = 'Salvar Sessão';
+        }
+        document.getElementById('form-section').classList.remove('hidden');
     }
-        toggleTempoField(e) {
+
+    hideForm() {
+        document.getElementById('form-section').classList.add('hidden');
+        this.resetForm();
+    }
+
+    toggleTempoField(e) {
         const tempoGroup = document.getElementById('tempo-group');
         const tempoInput = document.getElementById('tempo_total_minutos');
         
@@ -117,7 +170,7 @@ class QuestaoManager {
             errorMsg.className = 'error-message';
             errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Não pode ser maior que o total de questões';
             acertosGroup.appendChild(errorMsg);
-        } else if (questoesAcertadas >= 0 && totalQuestoes > 0) {
+                } else if (questoesAcertadas >= 0 && totalQuestoes > 0) {
             acertosGroup.classList.add('success');
             const porcentagem = ((questoesAcertadas / totalQuestoes) * 100).toFixed(1);
             const successMsg = document.createElement('div');
@@ -167,18 +220,18 @@ class QuestaoManager {
 
             if (response.ok) {
                 const result = await response.json();
-                this.showSuccess(this.editingId ? 'Questão atualizada com sucesso!' : 'Questão registrada com sucesso!');
-                this.resetForm();
+                this.showMessage(this.editingId ? 'Sessão atualizada com sucesso!' : 'Sessão registrada com sucesso!', 'success');
+                this.hideForm();
                 this.loadStatistics();
                 this.loadCharts();
                 this.loadQuestoes();
             } else {
                 const error = await response.json();
-                this.showError(error.error || 'Erro ao salvar questão');
+                this.showMessage(error.error || 'Erro ao salvar sessão', 'error');
             }
         } catch (error) {
             console.error('Erro:', error);
-            this.showError('Erro de conexão');
+            this.showMessage('Erro de conexão', 'error');
         } finally {
             this.showLoading(false);
         }
@@ -191,12 +244,12 @@ class QuestaoManager {
         const tempoTotal = parseInt(document.getElementById('tempo_total_minutos').value) || 0;
 
         if (questoesAcertadas > totalQuestoes) {
-            this.showError('Questões acertadas não pode ser maior que o total de questões');
+            this.showMessage('Questões acertadas não pode ser maior que o total de questões', 'error');
             return false;
         }
 
         if (incluirTempo && tempoTotal <= 0) {
-            this.showError('Tempo total deve ser maior que zero');
+            this.showMessage('Tempo total deve ser maior que zero', 'error');
             return false;
         }
 
@@ -220,8 +273,11 @@ class QuestaoManager {
             if (message) message.remove();
         });
 
-        // Update button text
-        document.getElementById('btn-salvar').innerHTML = '<i class="fas fa-save"></i> Salvar Sessão';
+        // Reset character counters
+        document.querySelectorAll('.char-counter').forEach(counter => {
+            counter.textContent = counter.textContent.replace(/^\d+/, '0');
+            counter.style.color = 'var(--ctp-subtext1)';
+        });
     }
 
     async loadStatistics() {
@@ -277,25 +333,35 @@ class QuestaoManager {
         }
     }
 
+    
     updateCharts(stats) {
+        console.log('Dados recebidos para gráficos:', stats); // Debug
+        
         const { por_materia } = stats;
         
         if (!por_materia || por_materia.length === 0) {
+            console.log('Nenhum dado por matéria encontrado'); // Debug
             this.showEmptyCharts();
             return;
         }
+
+        console.log('Dados por matéria:', por_materia); // Debug
 
         // Ordenar por média de acertos
         const sortedByBest = [...por_materia].sort((a, b) => b.media_acertos - a.media_acertos);
         const sortedByWorst = [...por_materia].sort((a, b) => a.media_acertos - b.media_acertos);
 
         // Melhor matéria
-        const bestSubject = sortedByBest[0];
-        this.updateBestSubjectChart(bestSubject);
+        if (sortedByBest.length > 0) {
+            const bestSubject = sortedByBest[0];
+            this.updateBestSubjectChart(bestSubject);
+        }
 
         // Pior matéria
-        const worstSubject = sortedByWorst[0];
-        this.updateWorstSubjectChart(worstSubject);
+        if (sortedByWorst.length > 0) {
+            const worstSubject = sortedByWorst[0];
+            this.updateWorstSubjectChart(worstSubject);
+        }
 
         // Gráfico geral
         this.updateGeneralChart(por_materia);
@@ -304,7 +370,6 @@ class QuestaoManager {
     updateBestSubjectChart(subject) {
         const ctx = document.getElementById('bestSubjectChart').getContext('2d');
         
-        // Atualizar informações
         document.getElementById('best-subject-name').textContent = subject.materia;
         document.getElementById('best-subject-percentage').textContent = `${subject.media_acertos}%`;
 
@@ -360,11 +425,9 @@ class QuestaoManager {
     updateWorstSubjectChart(subject) {
         const ctx = document.getElementById('worstSubjectChart').getContext('2d');
         
-        // Atualizar informações
         document.getElementById('worst-subject-name').textContent = subject.materia;
         document.getElementById('worst-subject-percentage').textContent = `${subject.media_acertos}%`;
 
-        // Destruir gráfico anterior se existir
         if (this.charts.worstSubject) {
             this.charts.worstSubject.destroy();
         }
@@ -412,18 +475,40 @@ class QuestaoManager {
             }
         });
     }
-
-    updateGeneralChart(materias) {
+        updateGeneralChart(materias) {
         const ctx = document.getElementById('generalSubjectsChart').getContext('2d');
+        
+        console.log('Dados originais para gráfico geral:', materias); // Debug
         
         // Destruir gráfico anterior se existir
         if (this.charts.generalSubjects) {
             this.charts.generalSubjects.destroy();
         }
 
-        const labels = materias.map(m => m.materia);
-        const data = materias.map(m => m.questoes);
-        const colors = this.chartColors.slice(0, materias.length);
+        // Filtrar matérias com questões > 0 e garantir que questoes é um número
+        const materiasComQuestoes = materias.filter(m => {
+            const questoes = parseInt(m.questoes) || 0;
+            return questoes > 0;
+        }).map(m => ({
+            ...m,
+            questoes: parseInt(m.questoes) || 0
+        }));
+        
+        console.log('Matérias filtradas:', materiasComQuestoes); // Debug
+        
+        if (materiasComQuestoes.length === 0) {
+            console.log('Nenhuma matéria com questões encontrada'); // Debug
+            this.showEmptyCharts();
+            return;
+        }
+
+        const labels = materiasComQuestoes.map(m => m.materia);
+        const data = materiasComQuestoes.map(m => m.questoes);
+        const colors = this.chartColors.slice(0, materiasComQuestoes.length);
+
+        console.log('Labels para gráfico:', labels); // Debug
+        console.log('Data para gráfico:', data); // Debug
+        console.log('Total de questões:', data.reduce((a, b) => a + b, 0)); // Debug
 
         this.charts.generalSubjects = new Chart(ctx, {
             type: 'pie',
@@ -455,7 +540,7 @@ class QuestaoManager {
                                 const label = context.label;
                                 const value = context.parsed;
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((value / total) * 100).toFixed(1);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
                                 return `${label}: ${value} questões (${percentage}%)`;
                             }
                         }
@@ -464,32 +549,51 @@ class QuestaoManager {
             }
         });
 
-        // Atualizar legenda personalizada
-        this.updateGeneralChartLegend(materias, colors);
+        // Atualizar legenda personalizada - usar os dados filtrados
+        this.updateGeneralChartLegend(materiasComQuestoes, colors);
     }
-        updateGeneralChartLegend(materias, colors) {
+
+    updateGeneralChartLegend(materias, colors) {
         const legendContainer = document.getElementById('general-chart-legend');
-        const totalQuestoes = materias.reduce((sum, m) => sum + m.questoes, 0);
+        
+        if (!materias || materias.length === 0) {
+            legendContainer.innerHTML = '';
+            return;
+        }
+        
+        const totalQuestoes = materias.reduce((sum, m) => sum + (parseInt(m.questoes) || 0), 0);
+        
+        console.log('Total de questões para legenda:', totalQuestoes); // Debug
+        console.log('Matérias para legenda:', materias); // Debug
+        
+        if (totalQuestoes === 0) {
+            legendContainer.innerHTML = '<p class="no-data">Nenhum dado disponível</p>';
+            return;
+        }
         
         legendContainer.innerHTML = materias.map((materia, index) => {
-            const percentage = ((materia.questoes / totalQuestoes) * 100).toFixed(1);
+            const questoes = parseInt(materia.questoes) || 0;
+            const percentage = totalQuestoes > 0 ? ((questoes / totalQuestoes) * 100).toFixed(1) : '0.0';
+            
+            console.log(`${materia.materia}: ${questoes} questões de ${totalQuestoes} = ${percentage}%`); // Debug
+            
             return `
                 <div class="legend-item">
                     <div class="legend-color" style="background-color: ${colors[index]}"></div>
                     <span class="legend-label">${materia.materia}</span>
                     <span class="legend-percentage">${percentage}%</span>
+                    <span class="legend-count">(${questoes} questões)</span>
                 </div>
             `;
         }).join('');
     }
 
+
     showEmptyCharts() {
-        // Limpar gráficos existentes
         Object.values(this.charts).forEach(chart => {
             if (chart) chart.destroy();
         });
 
-        // Mostrar estado vazio
         const chartContainers = document.querySelectorAll('.chart-container');
         chartContainers.forEach(container => {
             container.innerHTML = `
@@ -500,7 +604,6 @@ class QuestaoManager {
             `;
         });
 
-        // Limpar informações
         document.getElementById('best-subject-name').textContent = '-';
         document.getElementById('best-subject-percentage').textContent = '0%';
         document.getElementById('worst-subject-name').textContent = '-';
@@ -519,39 +622,9 @@ class QuestaoManager {
             `;
         });
     }
-
     refreshCharts() {
-        this.showChartNotification('Atualizando gráficos...');
+        this.showMessage('Atualizando gráficos...', 'info');
         this.loadCharts();
-    }
-
-    showChartNotification(message) {
-        // Remove notificações existentes
-        const existing = document.querySelector('.notification-chart');
-        if (existing) {
-            existing.remove();
-        }
-
-        const notification = document.createElement('div');
-        notification.className = 'notification-chart';
-        notification.innerHTML = `
-            <div class="notification-chart-content">
-                <i class="fas fa-chart-line"></i>
-                <span>${message}</span>
-                <button class="notification-chart-close" onclick="this.parentElement.parentElement.remove()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-
-        document.body.appendChild(notification);
-
-        // Auto remove após 3 segundos
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
-        }, 3000);
     }
 
     darkenColor(color, percent) {
@@ -572,6 +645,7 @@ class QuestaoManager {
             const params = new URLSearchParams({
                 page: this.currentPage,
                 limit: this.itemsPerPage,
+                order: this.currentOrder,
                 ...this.filters
             });
 
@@ -590,63 +664,69 @@ class QuestaoManager {
             }
         } catch (error) {
             console.error('Erro ao carregar questões:', error);
-            this.showError('Erro ao carregar questões');
+            this.showMessage('Erro ao carregar questões', 'error');
         } finally {
             this.showLoading(false);
         }
     }
 
     renderQuestoes(questoes) {
-        const container = document.getElementById('questao-list');
+        const container = document.getElementById('questoes-list');
+        const emptyState = document.getElementById('empty-state');
         
         if (questoes.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-question-circle"></i>
-                    <h3>Nenhuma questão encontrada</h3>
-                    <p>Registre sua primeira sessão de questões para começar!</p>
-                </div>
-            `;
+            container.innerHTML = '';
+            emptyState.classList.remove('hidden');
             return;
         }
 
-        container.innerHTML = questoes.map(questao => `
-            <div class="questao-item" data-materia="${questao.materia}">
-                <div class="questao-item-header">
-                    <span class="questao-materia">${questao.materia}</span>
-                    <span class="questao-data">${this.formatDate(questao.data_realizacao)}</span>
+        emptyState.classList.add('hidden');
+        container.innerHTML = questoes.map(questao => this.createQuestaoCard(questao)).join('');
+    }
+
+    createQuestaoCard(questao) {
+        const porcentagem = questao.porcentagem_acertos || 0;
+        const tempoInfo = questao.tempo_medio_por_questao ? 
+            `<div class="questao-tempo">${questao.tempo_medio_por_questao}min/questão</div>` : '';
+
+        return `
+            <div class="questao-card" data-id="${questao.id}">
+                <div class="questao-header">
+                    <div class="questao-materia">${questao.materia}</div>
+                    <div class="questao-date">${this.formatDate(questao.data_realizacao)}</div>
                 </div>
                 
-                <div class="questao-stats">
-                    <div class="questao-stat">
-                        <div class="questao-stat-value">${questao.total_questoes}</div>
-                        <div class="questao-stat-label">Total</div>
+                <div class="questao-content">
+                    <h3 class="questao-tema">${questao.tema || 'Sem tema especificado'}</h3>
+                    
+                    <div class="questao-stats">
+                        <div class="stat-item">
+                            <span class="stat-value">${questao.total_questoes}</span>
+                            <span class="stat-label">Total</span>
+                        </div>
+                        <div class="stat-item success">
+                            <span class="stat-value">${questao.questoes_acertadas}</span>
+                            <span class="stat-label">Acertos</span>
+                        </div>
+                        <div class="stat-item error">
+                            <span class="stat-value">${questao.questoes_erradas}</span>
+                            <span class="stat-label">Erros</span>
+                        </div>
+                        <div class="stat-item percentage">
+                            <span class="stat-value">${porcentagem}%</span>
+                            <span class="stat-label">Aproveitamento</span>
+                        </div>
                     </div>
-                    <div class="questao-stat">
-                        <div class="questao-stat-value questao-acertos">${questao.questoes_acertadas}</div>
-                        <div class="questao-stat-label">Acertos</div>
-                    </div>
-                    <div class="questao-stat">
-                        <div class="questao-stat-value questao-erros">${questao.questoes_erradas}</div>
-                        <div class="questao-stat-label">Erros</div>
-                    </div>
-                    <div class="questao-stat">
-                        <div class="questao-stat-value questao-porcentagem">${questao.porcentagem_acertos}%</div>
-                        <div class="questao-stat-label">Acertos</div>
-                    </div>
-                    ${questao.tempo_medio_por_questao ? `
-                        <div class="questao-stat">
-                            <div class="questao-stat-value questao-tempo">${questao.tempo_medio_por_questao}min</div>
-                            <div class="questao-stat-label">Tempo/Questão</div>
+                    
+                    ${tempoInfo}
+                    
+                    ${questao.observacoes ? `
+                        <div class="questao-observacoes">
+                            <i class="fas fa-comment"></i>
+                            <span>${questao.observacoes}</span>
                         </div>
                     ` : ''}
                 </div>
-                
-                ${questao.observacoes ? `
-                    <div class="questao-observacoes">
-                        <i class="fas fa-comment"></i> ${questao.observacoes}
-                    </div>
-                ` : ''}
                 
                 <div class="questao-actions">
                     <button class="btn-edit" onclick="questaoManager.editQuestao(${questao.id})">
@@ -657,98 +737,62 @@ class QuestaoManager {
                     </button>
                 </div>
             </div>
-        `).join('');
+        `;
     }
 
     renderPagination(pagination) {
         const container = document.getElementById('pagination');
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+        const currentPageSpan = document.getElementById('current-page');
+        const totalPagesSpan = document.getElementById('total-pages');
         
         if (pagination.pages <= 1) {
-            container.innerHTML = '';
+            container.classList.add('hidden');
             return;
         }
 
-        let paginationHTML = `
-            <button ${pagination.page <= 1 ? 'disabled' : ''} onclick="questaoManager.goToPage(${pagination.page - 1})">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-        `;
-
-        // Páginas
-        const startPage = Math.max(1, pagination.page - 2);
-        const endPage = Math.min(pagination.pages, pagination.page + 2);
-
-        if (startPage > 1) {
-            paginationHTML += `<button onclick="questaoManager.goToPage(1)">1</button>`;
-            if (startPage > 2) {
-                paginationHTML += `<span>...</span>`;
-            }
-        }
-
-        for (let i = startPage; i <= endPage; i++) {
-            paginationHTML += `
-                <button class="${i === pagination.page ? 'active' : ''}" onclick="questaoManager.goToPage(${i})">
-                    ${i}
-                </button>
-            `;
-        }
-
-        if (endPage < pagination.pages) {
-            if (endPage < pagination.pages - 1) {
-                paginationHTML += `<span>...</span>`;
-            }
-            paginationHTML += `<button onclick="questaoManager.goToPage(${pagination.pages})">${pagination.pages}</button>`;
-        }
-
-        paginationHTML += `
-            <button ${pagination.page >= pagination.pages ? 'disabled' : ''} onclick="questaoManager.goToPage(${pagination.page + 1})">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        `;
-
-        paginationHTML += `
-            <div class="pagination-info">
-                Página ${pagination.page} de ${pagination.pages} (${pagination.total} registros)
-            </div>
-        `;
-
-        container.innerHTML = paginationHTML;
+        container.classList.remove('hidden');
+        
+        prevBtn.disabled = pagination.page <= 1;
+        nextBtn.disabled = pagination.page >= pagination.pages;
+        
+        currentPageSpan.textContent = pagination.page;
+        totalPagesSpan.textContent = pagination.pages;
     }
 
-    goToPage(page) {
-        this.currentPage = page;
+    previousPage() {
+        if (this.currentPage > 1) {
+            this.currentPage--;
+            this.loadQuestoes();
+        }
+    }
+
+    nextPage() {
+        this.currentPage++;
         this.loadQuestoes();
     }
 
-    applyFilters() {
-        this.filters = {};
-        
-        const materia = document.getElementById('filter-materia').value;
-        const dataInicio = document.getElementById('filter-data-inicio').value;
-        const dataFim = document.getElementById('filter-data-fim').value;
+    setView(view) {
+        this.currentView = view;
+        const container = document.getElementById('questoes-list');
+        const gridBtn = document.getElementById('grid-view-btn');
+        const listBtn = document.getElementById('list-view-btn');
 
-        if (materia) this.filters.materia = materia;
-        if (dataInicio) this.filters.data_inicio = dataInicio;
-        if (dataFim) this.filters.data_fim = dataFim;
+        if (view === 'grid') {
+            container.className = 'questoes-list grid-view';
+            gridBtn.classList.add('active');
+            listBtn.classList.remove('active');
+        } else {
+            container.className = 'questoes-list list-view';
+            listBtn.classList.add('active');
+            gridBtn.classList.remove('active');
+        }
+    }
 
+    setOrder(order) {
+        this.currentOrder = order;
         this.currentPage = 1;
-        this.loadQuestoes();
-    }
-
-    clearFilters() {
-        this.filters = {};
-        this.currentPage = 1;
-        
-        document.getElementById('filter-materia').value = '';
-        document.getElementById('filter-data-inicio').value = '';
-        document.getElementById('filter-data-fim').value = '';
-        
-        this.loadQuestoes();
-    }
-
-    refreshData() {
-        this.loadStatistics();
-        this.loadCharts();
         this.loadQuestoes();
     }
 
@@ -764,34 +808,24 @@ class QuestaoManager {
                 const questao = await response.json();
                 this.fillFormForEdit(questao);
             } else {
-                this.showError('Erro ao carregar dados da questão');
+                this.showMessage('Erro ao carregar dados da questão', 'error');
             }
         } catch (error) {
             console.error('Erro:', error);
-            this.showError('Erro de conexão');
+            this.showMessage('Erro de conexão', 'error');
         }
     }
 
     fillFormForEdit(questao) {
         this.editingId = questao.id;
         
-        // Expandir formulário se estiver colapsado
-        const form = document.querySelector('.questao-form');
-        const toggleBtn = document.getElementById('toggle-form');
-        
-        if (form.classList.contains('collapsed')) {
-            form.classList.remove('collapsed');
-            toggleBtn.classList.remove('collapsed');
-        }
-
-        // Preencher campos
+        document.getElementById('tema').value = questao.tema || '';
         document.getElementById('materia').value = questao.materia;
         document.getElementById('total_questoes').value = questao.total_questoes;
         document.getElementById('questoes_acertadas').value = questao.questoes_acertadas;
         document.getElementById('data_realizacao').value = questao.data_realizacao;
         document.getElementById('observacoes').value = questao.observacoes || '';
 
-        // Tempo
         if (questao.tempo_total_minutos) {
             document.getElementById('incluir_tempo').checked = true;
             document.getElementById('tempo-group').style.display = 'block';
@@ -800,28 +834,31 @@ class QuestaoManager {
             this.calculateTempoMedio();
         }
 
-        // Validar acertos
         this.validateAcertos();
 
-        // Atualizar botão
-        document.getElementById('btn-salvar').innerHTML = '<i class="fas fa-save"></i> Atualizar Sessão';
+        document.getElementById('form-title').textContent = 'Editar Sessão';
+        document.getElementById('submit-text').textContent = 'Atualizar Sessão';
 
-        // Scroll para o formulário
-        document.querySelector('.questao-form-section').scrollIntoView({ behavior: 'smooth' });
+        this.showForm();
     }
 
     deleteQuestao(id) {
-        this.showModal(
-            'Tem certeza que deseja excluir esta sessão de questões?',
-            () => this.confirmDelete(id)
-        );
+        this.deleteId = id;
+        document.getElementById('delete-modal').classList.remove('hidden');
     }
 
-    async confirmDelete(id) {
+    hideDeleteModal() {
+        document.getElementById('delete-modal').classList.add('hidden');
+        this.deleteId = null;
+    }
+
+    async confirmDelete() {
+        if (!this.deleteId) return;
+
         try {
             this.showLoading(true);
             
-            const response = await fetch(`/api/questoes/${id}`, {
+            const response = await fetch(`/api/questoes/${this.deleteId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -829,77 +866,121 @@ class QuestaoManager {
             });
 
             if (response.ok) {
-                this.showSuccess('Questão excluída com sucesso!');
+                this.showMessage('Sessão excluída com sucesso!', 'success');
                 this.loadStatistics();
                 this.loadCharts();
                 this.loadQuestoes();
             } else {
                 const error = await response.json();
-                this.showError(error.error || 'Erro ao excluir questão');
+                this.showMessage(error.error || 'Erro ao excluir sessão', 'error');
             }
         } catch (error) {
             console.error('Erro:', error);
-            this.showError('Erro de conexão');
+            this.showMessage('Erro de conexão', 'error');
         } finally {
             this.showLoading(false);
-            this.hideModal();
+            this.hideDeleteModal();
         }
     }
 
-    showModal(message, confirmCallback) {
-        document.getElementById('confirm-message').textContent = message;
-        document.getElementById('confirm-modal').style.display = 'flex';
-        this.confirmCallback = confirmCallback;
-    }
+    async showStatistics() {
+        try {
+            this.showLoading(true);
+            
+            const response = await fetch('/api/questoes/estatisticas', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
 
-    hideModal() {
-        document.getElementById('confirm-modal').style.display = 'none';
-        this.confirmCallback = null;
-    }
-
-    confirmAction() {
-        if (this.confirmCallback) {
-            this.confirmCallback();
+            if (response.ok) {
+                const stats = await response.json();
+                this.renderStatistics(stats);
+                document.getElementById('stats-modal').classList.remove('hidden');
+            } else {
+                this.showMessage('Erro ao carregar estatísticas', 'error');
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            this.showMessage('Erro de conexão', 'error');
+        } finally {
+            this.showLoading(false);
         }
+    }
+
+    renderStatistics(stats) {
+        const { estatisticas_gerais, por_materia, ultimas_sessoes } = stats;
+        
+        document.getElementById('stats-total-questoes').textContent = estatisticas_gerais.total_questoes || 0;
+        document.getElementById('stats-total-acertos').textContent = estatisticas_gerais.total_acertos || 0;
+        document.getElementById('stats-media-acertos').textContent = `${estatisticas_gerais.media_acertos || 0}%`;
+        document.getElementById('stats-tempo-medio').textContent = 
+            estatisticas_gerais.tempo_medio_geral ? `${estatisticas_gerais.tempo_medio_geral}min` : 'N/A';
+
+        const materiasContainer = document.getElementById('materias-stats-content');
+        if (por_materia && por_materia.length > 0) {
+            materiasContainer.innerHTML = por_materia.map(materia => `
+                <div class="materia-stat">
+                    <div class="materia-header">
+                        <span class="materia-name">${materia.materia}</span>
+                        <span class="materia-percentage">${materia.media_acertos}%</span>
+                    </div>
+                    <div class="materia-details">
+                        <span>${materia.questoes} questões • ${materia.acertos} acertos</span>
+                    </div>
+                    <div class="materia-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${materia.media_acertos}%"></div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            materiasContainer.innerHTML = '<p class="no-data">Nenhum dado disponível</p>';
+        }
+
+        const ultimasContainer = document.getElementById('ultimas-sessoes-list');
+        if (ultimas_sessoes && ultimas_sessoes.length > 0) {
+            ultimasContainer.innerHTML = ultimas_sessoes.map(sessao => `
+                <div class="ultima-sessao">
+                    <div class="sessao-info">
+                        <span class="sessao-materia">${sessao.materia}</span>
+                        <span class="sessao-data">${this.formatDate(sessao.data_realizacao)}</span>
+                    </div>
+                    <div class="sessao-resultado">
+                        <span class="sessao-acertos">${sessao.questoes_acertadas}/${sessao.total_questoes}</span>
+                        <span class="sessao-porcentagem">${sessao.porcentagem_acertos}%</span>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            ultimasContainer.innerHTML = '<p class="no-data">Nenhuma sessão registrada</p>';
+        }
+    }
+
+    hideStatistics() {
+        document.getElementById('stats-modal').classList.add('hidden');
     }
 
     showLoading(show) {
-        document.getElementById('loading').style.display = show ? 'flex' : 'none';
-    }
-        showSuccess(message) {
-        this.showNotification(message, 'success');
-    }
-
-    showError(message) {
-        this.showNotification(message, 'error');
-    }
-
-    showNotification(message, type) {
-        // Remove notificações existentes
-        const existing = document.querySelector('.notification');
-        if (existing) {
-            existing.remove();
+        const loading = document.getElementById('loading');
+        if (show) {
+            loading.classList.remove('hidden');
+        } else {
+            loading.classList.add('hidden');
         }
+    }
 
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.innerHTML = `
-            <div class="notification-content">
-                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-                <span>${message}</span>
-                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
+    showMessage(message, type = 'info') {
+        const messageContainer = document.getElementById('message');
+        
+        messageContainer.className = `message ${type}`;
+        messageContainer.textContent = message;
+        messageContainer.classList.remove('hidden');
 
-        document.body.appendChild(notification);
-
-        // Auto remove após 5 segundos
+        // Auto hide após 5 segundos
         setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
+            messageContainer.classList.add('hidden');
         }, 5000);
     }
 
@@ -909,277 +990,9 @@ class QuestaoManager {
     }
 }
 
-// Estilos para notificações
-const notificationStyles = `
-    .notification {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 1001;
-        max-width: 400px;
-        border-radius: 10px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        animation: slideIn 0.3s ease-out;
-    }
-
-    .notification-success {
-        background: linear-gradient(135deg, #a6e3a1, #40a02b);
-        color: #1e1e2e;
-    }
-
-    .notification-error {
-        background: linear-gradient(135deg, #f38ba8, #d20f39);
-        color: #1e1e2e;
-    }
-
-    .notification-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 15px 20px;
-    }
-
-    .notification-close {
-        background: none;
-        border: none;
-        color: inherit;
-        cursor: pointer;
-        margin-left: auto;
-        padding: 5px;
-        border-radius: 50%;
-        transition: background 0.3s ease;
-    }
-
-    .notification-close:hover {
-        background: rgba(0,0,0,0.1);
-    }
-
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-
-    /* Estilos para os cards de questão */
-    .questao-item {
-        background: var(--ctp-surface1);
-        border: 1px solid var(--ctp-surface2);
-        border-radius: 12px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        transition: all 0.3s ease;
-    }
-
-    .questao-item:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        border-color: var(--ctp-mauve);
-    }
-
-    .questao-item-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 1px solid var(--ctp-surface2);
-    }
-
-    .questao-materia {
-        background: linear-gradient(135deg, var(--ctp-mauve), var(--ctp-pink));
-        color: var(--ctp-base);
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .questao-data {
-        color: var(--ctp-subtext1);
-        font-size: 0.85rem;
-        font-weight: 500;
-    }
-
-    .questao-stats {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    .questao-stat {
-        text-align: center;
-        padding: 0.75rem;
-        background: var(--ctp-surface0);
-        border-radius: 8px;
-        border: 1px solid var(--ctp-surface2);
-        transition: all 0.3s ease;
-    }
-
-    .questao-stat:hover {
-        border-color: var(--ctp-mauve);
-        transform: translateY(-1px);
-    }
-
-    .questao-stat-value {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: var(--ctp-text);
-        margin-bottom: 0.25rem;
-    }
-
-    .questao-stat-label {
-        font-size: 0.7rem;
-        color: var(--ctp-subtext1);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        font-weight: 600;
-    }
-
-    .questao-acertos .questao-stat-value {
-        color: var(--ctp-green);
-    }
-
-    .questao-erros .questao-stat-value {
-        color: var(--ctp-red);
-    }
-
-    .questao-porcentagem .questao-stat-value {
-        color: var(--ctp-blue);
-    }
-
-    .questao-tempo .questao-stat-value {
-        color: var(--ctp-yellow);
-    }
-
-    .questao-observacoes {
-        background: var(--ctp-surface0);
-        border: 1px solid var(--ctp-surface2);
-        border-radius: 8px;
-        padding: 0.75rem;
-        margin-bottom: 1rem;
-        color: var(--ctp-subtext1);
-        font-size: 0.85rem;
-        line-height: 1.5;
-    }
-
-    .questao-observacoes i {
-        color: var(--ctp-blue);
-        margin-right: 0.5rem;
-    }
-
-    .questao-actions {
-        display: flex;
-        gap: 0.5rem;
-        justify-content: flex-end;
-    }
-
-    .btn-edit, .btn-delete {
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 8px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .btn-edit {
-        background: linear-gradient(135deg, var(--ctp-blue), var(--ctp-sapphire));
-        color: var(--ctp-base);
-    }
-
-    .btn-edit:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(137, 180, 250, 0.4);
-    }
-
-    .btn-delete {
-        background: linear-gradient(135deg, var(--ctp-red), var(--ctp-maroon));
-        color: var(--ctp-base);
-    }
-
-    .btn-delete:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(243, 139, 168, 0.4);
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 3rem 1rem;
-        color: var(--ctp-subtext1);
-    }
-
-    .empty-state i {
-        font-size: 3rem;
-        color: var(--ctp-surface2);
-        margin-bottom: 1rem;
-    }
-
-    .empty-state h3 {
-        color: var(--ctp-text);
-        margin-bottom: 0.5rem;
-    }
-
-    .empty-state p {
-        margin: 0;
-        font-size: 0.9rem;
-    }
-
-    /* Responsividade */
-    @media (max-width: 768px) {
-        .questao-stats {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
-        }
-
-        .questao-actions {
-            flex-direction: column;
-        }
-
-        .btn-edit, .btn-delete {
-            justify-content: center;
-        }
-
-        .questao-item-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .questao-stats {
-            grid-template-columns: 1fr;
-        }
-
-        .questao-stat-value {
-            font-size: 1.1rem;
-        }
-
-        .questao-item {
-            padding: 0.75rem;
-        }
-    }
-`;
-
-// Adicionar estilos ao documento
-const styleSheet = document.createElement('style');
-styleSheet.textContent = notificationStyles;
-document.head.appendChild(styleSheet);
-
-// Inicializar quando o DOM estiver carregado
 let questaoManager;
 document.addEventListener('DOMContentLoaded', () => {
     questaoManager = new QuestaoManager();
 });
+
+ 
