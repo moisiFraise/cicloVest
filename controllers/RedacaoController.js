@@ -37,29 +37,29 @@ class RedacaoController {
         }
       }
 
-      // Calcular nota final
-      const nota_final = competencia_1 + competencia_2 + competencia_3 + competencia_4 + competencia_5;
-
       const client = await pool.connect();
 
       try {
+        // Remover nota_final da inserção - será calculada automaticamente
         const result = await client.query(`
           INSERT INTO redacoes (
             user_id, tema, nivel_dificuldade, 
             competencia_1, competencia_2, competencia_3, competencia_4, competencia_5,
-            nota_final, observacoes
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            observacoes
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           RETURNING *
         `, [
           userId, tema, nivel_dificuldade,
           competencia_1, competencia_2, competencia_3, competencia_4, competencia_5,
-          nota_final, observacoes
+          observacoes
         ]);
 
-        // Registrar atividade
+        const redacao = result.rows[0];
+
+        // Registrar atividade usando a nota_final calculada
         await client.query(
           'INSERT INTO user_activities (user_id, tipo, descricao, pontuacao) VALUES ($1, $2, $3, $4)',
-          [userId, 'redacao', `Nova redação: ${tema}`, nota_final]
+          [userId, 'redacao', `Nova redação: ${tema}`, redacao.nota_final]
         );
 
         // Atualizar estatísticas do usuário
@@ -78,7 +78,7 @@ class RedacaoController {
 
         res.status(201).json({
           message: 'Redação criada com sucesso!',
-          redacao: result.rows[0]
+          redacao: redacao
         });
 
       } finally {
@@ -100,7 +100,7 @@ class RedacaoController {
         limit = 10, 
         nivel = '', 
         orderBy = 'created_at', 
-        orderDir = 'DESC' 
+        order = 'DESC' 
       } = req.query;
 
       const offset = (page - 1) * limit;
@@ -121,7 +121,7 @@ class RedacaoController {
       const validOrderDir = ['ASC', 'DESC'];
       
       const finalOrderBy = validOrderBy.includes(orderBy) ? orderBy : 'created_at';
-      const finalOrderDir = validOrderDir.includes(orderDir) ? orderDir : 'DESC';
+      const finalOrderDir = validOrderDir.includes(order) ? order : 'DESC';
 
       const client = await pool.connect();
 
@@ -230,12 +230,10 @@ class RedacaoController {
         }
       }
 
-      // Calcular nota final
-      const nota_final = competencia_1 + competencia_2 + competencia_3 + competencia_4 + competencia_5;
-
       const client = await pool.connect();
 
       try {
+        // Remover nota_final do UPDATE - será calculada automaticamente
         const result = await client.query(`
           UPDATE redacoes 
           SET 
@@ -246,25 +244,26 @@ class RedacaoController {
             competencia_3 = $5,
             competencia_4 = $6,
             competencia_5 = $7,
-            nota_final = $8,
-            observacoes = $9,
+            observacoes = $8,
             updated_at = CURRENT_TIMESTAMP
-          WHERE id = $10 AND user_id = $11
+          WHERE id = $9 AND user_id = $10
           RETURNING *
         `, [
           tema, nivel_dificuldade,
           competencia_1, competencia_2, competencia_3, competencia_4, competencia_5,
-          nota_final, observacoes, id, userId
+          observacoes, id, userId
         ]);
 
         if (result.rows.length === 0) {
           return res.status(404).json({ error: 'Redação não encontrada' });
         }
 
-        // Registrar atividade
+        const redacao = result.rows[0];
+
+        // Registrar atividade usando a nota_final calculada
         await client.query(
           'INSERT INTO user_activities (user_id, tipo, descricao, pontuacao) VALUES ($1, $2, $3, $4)',
-          [userId, 'redacao_editada', `Redação editada: ${tema}`, nota_final]
+          [userId, 'redacao_editada', `Redação editada: ${tema}`, redacao.nota_final]
         );
 
         // Atualizar estatísticas do usuário
@@ -282,7 +281,7 @@ class RedacaoController {
 
         res.json({
           message: 'Redação atualizada com sucesso!',
-          redacao: result.rows[0]
+          redacao: redacao
         });
 
       } finally {

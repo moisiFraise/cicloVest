@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Página de Redação carregada');
     
-    // Verificar autenticação
     const token = localStorage.getItem('token');
     if (!token) {
         console.log('Token não encontrado, redirecionando para login');
@@ -11,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     initializeVariables();
     
-    // Inicializar página
     initRedacaoPage();
     loadRedacoes();
     bindEvents();
@@ -28,40 +26,406 @@ function initializeVariables() {
         currentFilters = {
             nivel: '',
             orderBy: 'created_at',
-            orderDir: 'DESC'
+            order: 'DESC'  
         };
     }
     
     console.log('Variáveis inicializadas:', { currentPage, totalPages, currentFilters });
 }
 
-// Variáveis globais
 let currentPage = 1;
 let totalPages = 1;
 let currentFilters = {
     nivel: '',
     orderBy: 'created_at',
-    orderDir: 'DESC'
+    order: 'DESC' 
 };
 let redacaoToDelete = null;
 
 function initRedacaoPage() {
-    // Carregar menu
     if (typeof loadMenu === 'function') {
         loadMenu();
     }
     
-    // Configurar contadores de caracteres
     setupCharCounters();
     
-    // Configurar cálculo automático da nota final
     setupNotaCalculation();
     
-    // Inicializar modo de visualização
     const savedViewMode = localStorage.getItem('redacao-view-mode') || 'grid';
     setViewMode(savedViewMode);
 }
+async function handleFormSubmit(e) {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('submit-btn');
+    const submitText = document.getElementById('submit-text');
+    const originalText = submitText.textContent;
+    
+    submitBtn.disabled = true;
+    submitText.textContent = 'Salvando...';
+    
+    try {
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData.entries());
+        
+        console.log('FormData completo:', data);
+        
+        data.competencia_1 = parseInt(data.competencia_1) || 0;
+        data.competencia_2 = parseInt(data.competencia_2) || 0;
+        data.competencia_3 = parseInt(data.competencia_3) || 0;
+        data.competencia_4 = parseInt(data.competencia_4) || 0;
+        data.competencia_5 = parseInt(data.competencia_5) || 0;
+        
+        const competencias = [data.competencia_1, data.competencia_2, data.competencia_3, data.competencia_4, data.competencia_5];
+        for (let i = 0; i < competencias.length; i++) {
+            if (isNaN(competencias[i]) || competencias[i] < 0 || competencias[i] > 200) {
+                throw new Error(`Competência ${i + 1} deve ser um número entre 0 e 200`);
+            }
+        }
+        
+        const redacaoIdField = document.getElementById('redacao-id');
+        const redacaoId = redacaoIdField ? redacaoIdField.value : '';
+        
+        console.log('Campo redacao-id existe?', !!redacaoIdField);
+        console.log('Valor do campo redacao-id:', redacaoId);
+        console.log('Valor do data.id:', data.id);
+        
+        const isEdit = redacaoId && redacaoId.trim() !== '' && redacaoId !== 'undefined';
+        
+        console.log('Dados finais a serem enviados:', data);
+        console.log('ID da redação final:', redacaoId);
+        console.log('É edição?', isEdit);
+        
+        const url = isEdit ? `/api/redacoes/${redacaoId}` : '/api/redacoes';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        console.log('URL final:', url);
+        console.log('Method final:', method);
+        
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        console.log('Resposta do servidor:', result);
+        
+        if (response.ok) {
+            showMessage(result.message, 'success');
+            hideRedacaoForm();
+            loadRedacoes();
+        } else {
+            showMessage(result.error || 'Erro ao salvar redação', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Erro ao salvar redação:', error);
+        showMessage(error.message || 'Erro ao salvar redação', 'error');
+    } finally {
+        // Reabilitar botão
+        submitBtn.disabled = false;
+        submitText.textContent = originalText;
+    }
+}
+async function loadRedacoes() {
+    const loading = document.getElementById('loading');
+    const emptyState = document.getElementById('empty-state');
+    const redacoesList = document.getElementById('redacoes-list');
+    const paginationDiv = document.getElementById('pagination');
+    
+    console.log('Iniciando carregamento de redações...');
+    
+    if (loading) {
+        loading.classList.remove('hidden');
+        console.log('Loading mostrado');
+    }
+    if (emptyState) {
+        emptyState.classList.add('hidden');
+        console.log('Empty state escondido');
+    }
+    if (redacoesList) {
+        redacoesList.innerHTML = '';
+        console.log('Lista limpa');
+    }
+    if (paginationDiv) {
+        paginationDiv.classList.add('hidden');
+        console.log('Paginação escondida');
+    }
+    
+    try {
+        const validPage = !isNaN(currentPage) && currentPage > 0 ? currentPage : 1;
+        const validLimit = 12;
+        const validNivel = currentFilters.nivel || '';
+        const validOrderBy = currentFilters.orderBy || 'created_at';
+        const validOrder = currentFilters.order || 'DESC';  
+        
+        const params = new URLSearchParams({
+            page: validPage.toString(),
+            limit: validLimit.toString(),
+            nivel: validNivel,
+            orderBy: validOrderBy,
+            order: validOrder  
+        });
+        
+        console.log('Fazendo requisição com parâmetros:', params.toString());
+        
+        const response = await fetch(`/api/redacoes?${params}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        console.log('Resposta recebida:', data);
+        
+        if (response.ok) {
+            const redacoes = data.redacoes || [];
+            const pagination = data.pagination || { currentPage: 1, totalPages: 1 };
+            
+            console.log('Número de redações:', redacoes.length);
+            
+            if (loading) {
+                loading.classList.add('hidden');
+                console.log('Loading escondido após sucesso');
+            }
+            
+            if (redacoes.length > 0) {
+                displayRedacoes(redacoes);
+                updatePagination(pagination);
+                console.log('Redações exibidas');
+            } else {
+                if (emptyState) {
+                    emptyState.classList.remove('hidden');
+                    console.log('Empty state mostrado - nenhuma redação');
+                }
+            }
+            
+        } else {
+            console.error('Erro na resposta:', data);
+            
+            if (loading) {
+                loading.classList.add('hidden');
+                console.log('Loading escondido após erro');
+            }
+            
+            showMessage(data.error || 'Erro ao carregar redações', 'error');
+            
+            if (emptyState) {
+                emptyState.classList.remove('hidden');
+                console.log('Empty state mostrado após erro');
+            }
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar redações:', error);
+        
+        if (loading) {
+            loading.classList.add('hidden');
+            console.log('Loading escondido após exceção');
+        }
+        
+        showMessage('Erro ao carregar redações', 'error');
+        
+        if (emptyState) {
+            emptyState.classList.remove('hidden');
+            console.log('Empty state mostrado após exceção');
+        }
+    }
+}
+function handleFilterChange() {
+    const nivelFilter = document.getElementById('nivel-filter');
+    const orderFilter = document.getElementById('order-filter');
+    
+    if (!currentFilters) {
+        currentFilters = {
+            nivel: '',
+            orderBy: 'created_at',
+            order: 'DESC'  
+        };
+    }
+    
+    if (nivelFilter) {
+        currentFilters.nivel = nivelFilter.value;
+    }
+    if (orderFilter) {
+            const orderValue = orderFilter.value.split('-');
+            currentFilters.orderBy = orderValue[0] || 'created_at';
+            currentFilters.order = orderValue[1] || 'DESC';  
+        }
+        
+        console.log('Filtros atualizados:', currentFilters);
+        
+        currentPage = 1; 
+        loadRedacoes();
+    }
+async function showEstatisticas() {
+    const statsModal = document.getElementById('stats-modal');
+    statsModal.classList.remove('hidden');
+    
+    try {
+        const response = await fetch('/api/redacoes/stats', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        console.log('Estatísticas carregadas:', data);
+        
+        if (response.ok) {
+            displayEstatisticas(data);
+        } else {
+            showMessage(data.error || 'Erro ao carregar estatísticas', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar estatísticas:', error);
+        showMessage('Erro ao carregar estatísticas', 'error');
+    }
+}
+function displayEstatisticas(data) {
+    console.log('Exibindo estatísticas:', data);
+    
+    const stats = data.geral || data.estatisticas || {};
+    const porNivel = data.porNivel || data.por_nivel || [];
+    const ultimas = data.ultimasRedacoes || data.ultimas_redacoes || [];
+    
+    document.getElementById('total-redacoes').textContent = stats.totalRedacoes || stats.total_redacoes || 0;
+    document.getElementById('media-geral').textContent = (stats.mediaGeral || stats.media_geral || 0).toFixed(1);
+    document.getElementById('melhor-nota').textContent = stats.melhorNota || stats.melhor_nota || 0;
+    document.getElementById('pior-nota').textContent = stats.piorNota || stats.pior_nota || 0;
+    
+    const competencias = ['c1', 'c2', 'c3', 'c4', 'c5'];
+    const mediaCompetencias = stats.mediaCompetencias || stats.competencias || {};
+    
+    competencias.forEach(comp => {
+        const valor = mediaCompetencias[comp] || 0;
+        const percentage = (valor / 200) * 100;
+        
+        const valueElement = document.getElementById(`${comp}-value`);
+        const barElement = document.getElementById(`${comp}-bar`);
+        
+        if (valueElement) valueElement.textContent = valor.toFixed(1);
+        if (barElement) barElement.style.width = `${percentage}%`;
+    });
+    
+    displayNivelStats(porNivel);
+    displayUltimasRedacoes(ultimas);
+}
+function displayNivelStats(porNivel) {
+    const container = document.getElementById('nivel-stats');
+    
+    if (!container) return;
+    
+    if (porNivel.length === 0) {
+        container.innerHTML = '<p class="no-data">Nenhuma estatística por nível disponível</p>';
+        return;
+    }
+    
+    container.innerHTML = porNivel.map(nivel => {
+        const nivelText = {
+            'facil': 'Fácil',
+            'medio': 'Médio',
+            'dificil': 'Difícil'
+        };
+        
+        return `
+            <div class="nivel-stat-item">
+                <div class="nivel-info">
+                    <h4>${nivelText[nivel.nivel_dificuldade] || nivel.nivel_dificuldade}</h4>
+                    <span class="nivel-quantidade">${nivel.quantidade} redações</span>
+                </div>
+                <div class="nivel-media">
+                    ${parseFloat(nivel.media).toFixed(1)}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
 
+function setupCharCounters() {
+    const temaInput = document.getElementById('tema');
+    const observacoesTextarea = document.getElementById('observacoes');
+    
+    if (temaInput) {
+        const temaCounter = temaInput.parentElement.querySelector('.char-counter');
+        temaInput.addEventListener('input', () => {
+            updateCharCounter(temaInput, temaCounter, 500);
+        });
+    }
+    
+    if (observacoesTextarea) {
+        const obsCounter = observacoesTextarea.parentElement.querySelector('.char-counter');
+        observacoesTextarea.addEventListener('input', () => {
+            updateCharCounter(observacoesTextarea, obsCounter, 1000);
+        });
+    }
+}
+function updateCharCounter(input, counter, maxLength) {
+    const currentLength = input.value.length;
+    counter.textContent = `${currentLength}/${maxLength} caracteres`;
+    
+    if (currentLength > maxLength * 0.9) {
+        counter.style.color = '#e74c3c';
+    } else if (currentLength > maxLength * 0.7) {
+        counter.style.color = '#f39c12';
+    } else {
+        counter.style.color = '#7f8c8d';
+    }
+}
+
+function setupNotaCalculation() {
+    const competenciaInputs = ['c1', 'c2', 'c3', 'c4', 'c5'].map(id => document.getElementById(id));
+    
+    competenciaInputs.forEach(input => {
+        if (input) {
+            input.addEventListener('input', calculateNotaFinal);
+        }
+    });
+}
+
+// nota final calc
+function calculateNotaFinal() {
+    const competencias = ['c1', 'c2', 'c3', 'c4', 'c5'];
+    let total = 0;
+    let allFilled = true;
+    
+    competencias.forEach(id => {
+        const input = document.getElementById(id);
+        const value = parseInt(input.value) || 0;
+        
+        if (!input.value) {
+            allFilled = false;
+        }
+        
+        total += value;
+    });
+    
+    const notaDisplay = document.getElementById('nota-final-display');
+    const progressFill = document.querySelector('.progress-fill');
+    
+    if (notaDisplay) {
+        notaDisplay.textContent = total;
+    }
+    
+    if (progressFill) {
+        const percentage = (total / 1000) * 100;
+        progressFill.style.width = `${percentage}%`;
+        
+        // Cores baseadas na nota
+        if (total >= 800) {
+            progressFill.style.backgroundColor = '#27ae60';
+        } else if (total >= 600) {
+            progressFill.style.backgroundColor = '#f39c12';
+        } else {
+            progressFill.style.backgroundColor = '#e74c3c';
+        }
+    }
+}
 async function handleFormSubmit(e) {
     e.preventDefault();
     
@@ -140,200 +504,6 @@ async function handleFormSubmit(e) {
     }
 }
 
-async function loadRedacoes() {
-    const loading = document.getElementById('loading');
-    const emptyState = document.getElementById('empty-state');
-    const redacoesList = document.getElementById('redacoes-list');
-    const paginationDiv = document.getElementById('pagination');
-    
-    console.log('Iniciando carregamento de redações...');
-    
-    if (loading) {
-        loading.classList.remove('hidden');
-        console.log('Loading mostrado');
-    }
-    if (emptyState) {
-        emptyState.classList.add('hidden');
-        console.log('Empty state escondido');
-    }
-    if (redacoesList) {
-        redacoesList.innerHTML = '';
-        console.log('Lista limpa');
-    }
-    if (paginationDiv) {
-        paginationDiv.classList.add('hidden');
-        console.log('Paginação escondida');
-    }
-    
-    try {
-        const validPage = !isNaN(currentPage) && currentPage > 0 ? currentPage : 1;
-        const validLimit = 12;
-        const validNivel = currentFilters.nivel || '';
-        const validOrderBy = currentFilters.orderBy || 'created_at';
-        const validOrder = currentFilters.orderDir || 'DESC';
-        
-        const params = new URLSearchParams({
-            page: validPage.toString(),
-            limit: validLimit.toString(),
-            nivel: validNivel,
-            orderBy: validOrderBy,
-            order: validOrder
-        });
-        
-        console.log('Fazendo requisição com parâmetros:', params.toString());
-        
-        const response = await fetch(`/api/redacoes?${params}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        
-        const data = await response.json();
-        console.log('Resposta recebida:', data);
-        
-        if (response.ok) {
-            const redacoes = data.redacoes || [];
-            const pagination = data.pagination || { currentPage: 1, totalPages: 1 };
-            
-            console.log('Número de redações:', redacoes.length);
-            
-            // Esconder loading ANTES de mostrar conteúdo erro que nao parava mais ksksksks
-            if (loading) {
-                loading.classList.add('hidden');
-                console.log('Loading escondido após sucesso');
-            }
-            
-            if (redacoes.length > 0) {
-                displayRedacoes(redacoes);
-                updatePagination(pagination);
-                console.log('Redações exibidas');
-            } else {
-                if (emptyState) {
-                    emptyState.classList.remove('hidden');
-                    console.log('Empty state mostrado - nenhuma redação');
-                }
-            }
-            
-        } else {
-            console.error('Erro na resposta:', data);
-            
-            if (loading) {
-                loading.classList.add('hidden');
-                console.log('Loading escondido após erro');
-            }
-            
-            showMessage(data.error || 'Erro ao carregar redações', 'error');
-            
-            if (emptyState) {
-                emptyState.classList.remove('hidden');
-                console.log('Empty state mostrado após erro');
-            }
-        }
-        
-    } catch (error) {
-        console.error('Erro ao carregar redações:', error);
-        
-        if (loading) {
-            loading.classList.add('hidden');
-            console.log('Loading escondido após exceção');
-        }
-        
-        showMessage('Erro ao carregar redações', 'error');
-        
-        if (emptyState) {
-            emptyState.classList.remove('hidden');
-            console.log('Empty state mostrado após exceção');
-        }
-    }
-}
-
-function handleFilterChange() {
-    const nivelFilter = document.getElementById('nivel-filter');
-    const orderFilter = document.getElementById('order-filter');
-    
-    if (!currentFilters) {
-        currentFilters = {
-            nivel: '',
-            orderBy: 'created_at',
-            orderDir: 'DESC'
-        };
-    }
-    
-    if (nivelFilter) {
-        currentFilters.nivel = nivelFilter.value;
-    }
-    
-    if (orderFilter) {
-        const orderValue = orderFilter.value.split('-');
-        currentFilters.orderBy = orderValue[0] || 'created_at';
-        currentFilters.orderDir = orderValue[1] || 'DESC';
-    }
-    
-    console.log('Filtros atualizados:', currentFilters);
-    
-    currentPage = 1; 
-    loadRedacoes();
-}
-
-
-async function showEstatisticas() {
-    const statsModal = document.getElementById('stats-modal');
-    statsModal.classList.remove('hidden');
-    
-    try {
-        const response = await fetch('/api/redacoes/stats', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        
-        const data = await response.json();
-        console.log('Estatísticas carregadas:', data);
-        
-        if (response.ok) {
-            displayEstatisticas(data);
-        } else {
-            showMessage(data.error || 'Erro ao carregar estatísticas', 'error');
-        }
-        
-    } catch (error) {
-        console.error('Erro ao carregar estatísticas:', error);
-        showMessage('Erro ao carregar estatísticas', 'error');
-    }
-}
-
-function displayEstatisticas(data) {
-    console.log('Exibindo estatísticas:', data);
-    
-    const stats = data.geral || data.estatisticas || {};
-    const porNivel = data.porNivel || data.por_nivel || [];
-    const ultimas = data.ultimasRedacoes || data.ultimas_redacoes || [];
-    
-    document.getElementById('total-redacoes').textContent = stats.totalRedacoes || stats.total_redacoes || 0;
-    document.getElementById('media-geral').textContent = (stats.mediaGeral || stats.media_geral || 0).toFixed(1);
-    document.getElementById('melhor-nota').textContent = stats.melhorNota || stats.melhor_nota || 0;
-    document.getElementById('pior-nota').textContent = stats.piorNota || stats.pior_nota || 0;
-    
-    // Competências
-    const competencias = ['c1', 'c2', 'c3', 'c4', 'c5'];
-    const mediaCompetencias = stats.mediaCompetencias || stats.competencias || {};
-    
-    competencias.forEach(comp => {
-        const valor = mediaCompetencias[comp] || 0;
-        const percentage = (valor / 200) * 100;
-        
-        const valueElement = document.getElementById(`${comp}-value`);
-        const barElement = document.getElementById(`${comp}-bar`);
-        
-        if (valueElement) valueElement.textContent = valor.toFixed(1);
-        if (barElement) barElement.style.width = `${percentage}%`;
-    });
-    
-    displayNivelStats(porNivel);
-    
-    displayUltimasRedacoes(ultimas);
-}
-
 function setupCharCounters() {
     const temaInput = document.getElementById('tema');
     const observacoesTextarea = document.getElementById('observacoes');
@@ -376,48 +546,8 @@ function setupNotaCalculation() {
     });
 }
 
-// nota final calc
-function calculateNotaFinal() {
-    const competencias = ['c1', 'c2', 'c3', 'c4', 'c5'];
-    let total = 0;
-    let allFilled = true;
-    
-    competencias.forEach(id => {
-        const input = document.getElementById(id);
-        const value = parseInt(input.value) || 0;
-        
-        if (!input.value) {
-            allFilled = false;
-        }
-        
-        total += value;
-    });
-    
-    const notaDisplay = document.getElementById('nota-final-display');
-    const progressFill = document.querySelector('.progress-fill');
-    
-    if (notaDisplay) {
-        notaDisplay.textContent = total;
-    }
-    
-    if (progressFill) {
-        const percentage = (total / 1000) * 100;
-        progressFill.style.width = `${percentage}%`;
-        
-        // Cores baseadas na nota
-        if (total >= 800) {
-            progressFill.style.backgroundColor = '#27ae60';
-        } else if (total >= 600) {
-            progressFill.style.backgroundColor = '#f39c12';
-        } else {
-            progressFill.style.backgroundColor = '#e74c3c';
-        }
-    }
-}
-
 // Bind de eventos
 function bindEvents() {
-    // Botões principais
     const novaRedacaoBtn = document.getElementById('nova-redacao-btn');
     const estatisticasBtn = document.getElementById('estatisticas-btn');
     
@@ -429,7 +559,6 @@ function bindEvents() {
         estatisticasBtn.addEventListener('click', showEstatisticas);
     }
     
-    // Formulário
     const redacaoForm = document.getElementById('redacao-form');
     const closeFormBtn = document.getElementById('close-form-btn');
     const cancelBtn = document.getElementById('cancel-btn');
@@ -446,7 +575,6 @@ function bindEvents() {
         cancelBtn.addEventListener('click', hideRedacaoForm);
     }
     
-    // Filtros
     const nivelFilter = document.getElementById('nivel-filter');
     const orderFilter = document.getElementById('order-filter');
     
@@ -458,7 +586,6 @@ function bindEvents() {
         orderFilter.addEventListener('change', handleFilterChange);
     }
     
-    // Visualização
     const gridViewBtn = document.getElementById('grid-view-btn');
     const listViewBtn = document.getElementById('list-view-btn');
     
@@ -470,7 +597,6 @@ function bindEvents() {
         listViewBtn.addEventListener('click', () => setViewMode('list'));
     }
     
-    // Paginação
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
     
@@ -482,13 +608,12 @@ function bindEvents() {
         nextPageBtn.addEventListener('click', () => changePage(currentPage + 1));
     }
     
-    // Modais
     const closeStatsBtn = document.getElementById('close-stats-btn');
     const closeDeleteBtn = document.getElementById('close-delete-btn');
     const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
     const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
     
-    if (closeStatsBtn) {
+   if (closeStatsBtn) {
         closeStatsBtn.addEventListener('click', hideStatsModal);
     }
     
@@ -510,8 +635,6 @@ function bindEvents() {
         }
     });
 }
-
-//  formulário de redação
 function showRedacaoForm(redacao = null) {
     const formSection = document.getElementById('form-section');
     const formTitle = document.getElementById('form-title');
@@ -541,6 +664,7 @@ function showRedacaoForm(redacao = null) {
     formSection.classList.remove('hidden');
     document.getElementById('tema').focus();
 }
+
 function hideRedacaoForm() {
     const formSection = document.getElementById('form-section');
     formSection.classList.add('hidden');
@@ -578,7 +702,6 @@ function fillForm(redacao) {
     
     calculateNotaFinal();
 }
-
 function displayRedacoes(redacoes) {
     const redacoesList = document.getElementById('redacoes-list');
     const emptyState = document.getElementById('empty-state');
@@ -744,7 +867,6 @@ function deleteRedacao(id) {
     const deleteModal = document.getElementById('delete-modal');
     deleteModal.classList.remove('hidden');
 }
-
 async function confirmDelete() {
     if (!redacaoToDelete) return;
     
@@ -780,14 +902,11 @@ async function confirmDelete() {
         confirmBtn.textContent = originalText;
     }
 }
-
 function hideDeleteModal() {
     const deleteModal = document.getElementById('delete-modal');
     deleteModal.classList.add('hidden');
     redacaoToDelete = null;
 }
-
-
 function setViewMode(mode) {
     const redacoesList = document.getElementById('redacoes-list');
     const gridBtn = document.getElementById('grid-view-btn');
@@ -809,7 +928,6 @@ function setViewMode(mode) {
     
     localStorage.setItem('redacao-view-mode', mode);
 }
-
 function showMessage(message, type = 'info') {
     const messageDiv = document.getElementById('message');
     
@@ -843,7 +961,6 @@ function changePage(page) {
     currentPage = newPage;
     loadRedacoes();
 }
-
 function updatePagination(pagination) {
     const paginationDiv = document.getElementById('pagination');
     const prevBtn = document.getElementById('prev-page');
@@ -894,8 +1011,11 @@ function updatePagination(pagination) {
         totalPagesSpan.textContent = totalPages;
     }
 }
+
 function displayUltimasRedacoes(ultimasRedacoes) {
     const container = document.getElementById('ultimas-redacoes-list');
+    
+    if (!container) return;
     
     if (ultimasRedacoes.length === 0) {
         container.innerHTML = '<p class="no-data">Nenhuma redação registrada ainda</p>';
@@ -920,12 +1040,10 @@ function displayUltimasRedacoes(ultimasRedacoes) {
         `;
     }).join('');
 }
-
 function hideStatsModal() {
     const statsModal = document.getElementById('stats-modal');
     statsModal.classList.add('hidden');
 }
-
 function showMessage(message, type = 'info') {
     const messageDiv = document.getElementById('message');
     
